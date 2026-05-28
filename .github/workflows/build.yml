@@ -13,186 +13,100 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      # 安装完整编译依赖（rt-n56u 必需）
+      - name: Install full build dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y \
-            build-essential libncurses5-dev libncurses-dev gawk flex bison quilt libssl-dev \
-            libxml-parser-perl mercurial bzip2 unzip python3 python3-pip git-core \
-            subversion libz-dev libexpat-dev liblzma-dev libtool-bin curl cmake gperf \
-            fakeroot gettext automake autopoint texinfo help2man pkg-config wget
+          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev \
+            git unzip zip libz-dev libglib2.0-dev intltool autopoint gettext \
+            cmake python3 python3-distutils util-linux file wget curl
 
-      - name: Clone rt-n56u source
+      - name: Clone rt-n56u source (hanwckf)
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n56u
           cd /opt/rt-n56u/toolchain-mipsel
+          chmod +x dl_toolchain.sh
           ./dl_toolchain.sh
 
-      - name: Write board.h (LED + Reset Key)
+      # 写入 R6800 专用 board.h（LED + 复位按键）
+      - name: Write R6800 board.h
         run: |
           cat > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h <<'EOF'
-/* NETGEAR-BZV */
-
+/* NETGEAR R6800 (MT7621AT + MT7603 + MT7615) */
 #define BOARD_PID "NETGEAR-BZV"
 #define BOARD_NAME "NETGEAR-BZV"
-#define BOARD_DESC "NETGEAR Dual MT7615 Wireless Router"
+#define BOARD_DESC "NETGEAR R6800 Dual MT7615 Wireless Router"
 #define BOARD_VENDOR_NAME "NETGEAR Co., Ltd."
-#define BOARD_VENDOR_URL "http://www.netgear.com/"
-#define BOARD_MODEL_URL "http://www.netgear.com/Networking/NETGEAR-BZV/"
-#define BOARD_BOOT_TIME        20
-#define BOARD_FLASH_TIME        120
-#define BOARD_GPIO_BTN_RESET        12
-#define BOARD_GPIO_BTN_WPS        18
-#define BOARD_GPIO_BTN_FN1        14
-#define BOARD_GPIO_LED_WIFI        5
+#define BOARD_BOOT_TIME 20
+#define BOARD_FLASH_TIME 120
 
-#undef  BOARD_GPIO_LED_ALL
-#undef  BOARD_GPIO_LED_POWER
-#undef  BOARD_GPIO_LED_LAN
-#undef  BOARD_GPIO_LED_WAN
-#undef  BOARD_GPIO_LED_USB
-#undef  BOARD_GPIO_LED_ROUTER
-#undef  BOARD_GPIO_PWR_USB_ON
-#undef  BOARD_GPIO_PWR_USB
+/* GPIO Key */
+#define BOARD_GPIO_BTN_RESET 12
+#define BOARD_GPIO_BTN_WPS 18
+#define BOARD_GPIO_BTN_FN1 14
 
-#define BOARD_HAS_5G_11AC        1
-#define BOARD_NUM_ANT_5G_TX        4
-#define BOARD_NUM_ANT_5G_RX        4
-#define BOARD_NUM_ANT_2G_TX        4
-#define BOARD_NUM_ANT_2G_RX        4
-#define BOARD_NUM_ETH_LEDS        0
-#define BOARD_NUM_ETH_EPHY        5
-#define BOARD_HAS_EPHY_L1000        1
-#define BOARD_HAS_EPHY_W1000        1
-#define BOARD_NUM_UPHY_USB3        1
+/* GPIO LED */
+#define BOARD_GPIO_LED_WIFI 5
+
+#undef BOARD_GPIO_LED_ALL
+#undef BOARD_GPIO_LED_POWER
+#undef BOARD_GPIO_LED_LAN
+#undef BOARD_GPIO_LED_WAN
+#undef BOARD_GPIO_LED_USB
+#undef BOARD_GPIO_LED_ROUTER
+
+/* WiFi 配置 */
+#define BOARD_HAS_5G_11AC 1
+#define BOARD_NUM_ANT_5G_TX 4
+#define BOARD_NUM_ANT_5G_RX 4
+#define BOARD_NUM_ANT_2G_TX 4
+#define BOARD_NUM_ANT_2G_RX 4
+
+/* 网口配置 */
+#define BOARD_NUM_ETH_LEDS 0
+#define BOARD_NUM_ETH_EPHY 5
+#define BOARD_HAS_EPHY_L1000 1
+#define BOARD_HAS_EPHY_W1000 1
+#define BOARD_NUM_UPHY_USB3 1
 EOF
 
-      - name: Set WAN/LAN Port Mapping
+      # 配置 WAN/LAN 网口映射（R6800 标准顺序）
+      - name: Set WAN/LAN port map
         run: |
-          sed -i 's/CONFIG_RAETH_ESW_PORT_WAN=.*/CONFIG_RAETH_ESW_PORT_WAN=4/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-          sed -i 's/CONFIG_RAETH_ESW_PORT_LAN1=.*/CONFIG_RAETH_ESW_PORT_LAN1=3/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-          sed -i 's/CONFIG_RAETH_ESW_PORT_LAN2=.*/CONFIG_RAETH_ESW_PORT_LAN2=2/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-          sed -i 's/CONFIG_RAETH_ESW_PORT_LAN3=.*/CONFIG_RAETH_ESW_PORT_LAN3=1/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-          sed -i 's/CONFIG_RAETH_ESW_PORT_LAN4=.*/CONFIG_RAETH_ESW_PORT_LAN4=0/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
+          CONFIG_PATH="/opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config"
+          sed -i 's/^CONFIG_RAETH_ESW_PORT_WAN=.*/CONFIG_RAETH_ESW_PORT_WAN=4/' $CONFIG_PATH
+          sed -i 's/^CONFIG_RAETH_ESW_PORT_LAN1=.*/CONFIG_RAETH_ESW_PORT_LAN1=3/' $CONFIG_PATH
+          sed -i 's/^CONFIG_RAETH_ESW_PORT_LAN2=.*/CONFIG_RAETH_ESW_PORT_LAN2=2/' $CONFIG_PATH
+          sed -i 's/^CONFIG_RAETH_ESW_PORT_LAN3=.*/CONFIG_RAETH_ESW_PORT_LAN3=1/' $CONFIG_PATH
+          sed -i 's/^CONFIG_RAETH_ESW_PORT_LAN4=.*/CONFIG_RAETH_ESW_PORT_LAN4=0/' $CONFIG_PATH
 
-      - name: Configure 5G 4x4 MIMO
+      # 5G 开启 4x4 天线
+      - name: Enable 5G 4x4 MIMO
         run: |
-          cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
-          sed -i 's/CONFIG_MT7615_5G_ANT_TX=3/CONFIG_MT7615_5G_ANT_TX=4/g' board.mk
-          sed -i 's/CONFIG_MT7615_5G_ANT_RX=3/CONFIG_MT7615_5G_ANT_RX=4/g' board.mk
-          echo "CONFIG_MT7615_4X4=y" >> board.mk
+          BOARD_MK="/opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk"
+          sed -i 's/CONFIG_MT7615_5G_ANT_TX=3/CONFIG_MT7615_5G_ANT_TX=4/' $BOARD_MK
+          sed -i 's/CONFIG_MT7615_5G_ANT_RX=3/CONFIG_MT7615_5G_ANT_RX=4/' $BOARD_MK
+          echo "CONFIG_MT7615_4X4=y" >> $BOARD_MK
 
-      - name: Overclock CPU to 1000MHz
+      # MT7621 超频到 1000MHz（稳定频率）
+      - name: Overclock MT7621 to 1000MHz
         run: |
-          cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
-          sed -i '/CONFIG_MT7621_CPU_CLOCK/d' board.mk
-          echo "CONFIG_MT7621_CPU_CLOCK=1000" >> board.mk
+          BOARD_MK="/opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk"
+          sed -i '/CONFIG_MT7621_CPU_CLOCK/d' $BOARD_MK
+          echo "CONFIG_MT7621_CPU_CLOCK=1000" >> $BOARD_MK
 
-      - name: Configure firmware settings
-        run: |
-          cd /opt/rt-n56u/trunk
-          TNAME="NETGEAR-BZV"
-          cp -f configs/templates/$TNAME.config .config
-
-          sed -i 's|^CONFIG_FIRMWARE_WIFI_DRIVER=.*|CONFIG_FIRMWARE_WIFI_DRIVER=5.0.4.0|' .config
-          sed -i 's|^CONFIG_FIRMWARE_KERNEL_CONFIG=.*|CONFIG_FIRMWARE_KERNEL_CONFIG="kernel-3.4.x.config"|' .config
-          sed -i 's|^CONFIG_FIRMWARE_WIFI2_DRIVER=.*|CONFIG_FIRMWARE_WIFI2_DRIVER=4.0|' .config
-          sed -i 's|^CONFIG_FIRMWARE_WIFI_COUNTRY=.*|CONFIG_FIRMWARE_WIFI_COUNTRY="CN"|' .config
-          echo "CONFIG_FIRMWARE_DISABLE_DFS=y" >> .config
-
-          sed -i 's|^CONFIG_FIRMWARE_PRODUCT_ID=.*|CONFIG_FIRMWARE_PRODUCT_ID="R6800"|' .config
-          echo "CONFIG_FIRMWARE_R6800=y" >> .config
-          echo 'CONFIG_FIRMWARE_DEFAULT_TIMEZONE="CST-8"' >> .config
-          echo 'CONFIG_FIRMWARE_DEFAULT_LANG="zh-CN"' >> .config
-
-          sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/' .config
-          echo "CONFIG_FIRMWARE_ENABLE_IPV6=y" >> .config
-          echo "CONFIG_FIRMWARE_ENABLE_USB=y" >> .config
-          echo "CONFIG_FIRMWARE_ENABLE_NAT=y" >> .config
-
-          sed -i '/CONFIG_FIRMWARE_INCLUDE_MENTOHUST/d' .config
-          sed -i '/CONFIG_FIRMWARE_INCLUDE_FRPC/d' .config
-          sed -i '/CONFIG_FIRMWARE_INCLUDE_FRPS/d' .config
-          sed -i '/CONFIG_FIRMWARE_INCLUDE_V2RAY/d' .config
-          sed -i '/CONFIG_FIRMWARE_INCLUDE_TROJAN/d' .config
-
-          echo "CONFIG_FIRMWARE_INCLUDE_ADBYby=y" >> .config
-          echo "CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER=y" >> .config
-          echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNS=y" >> .config
-          echo "CONFIG_FIRMWARE_INCLUDE_DDNS=y" >> .config
-          echo "CONFIG_FIRMWARE_INCLUDE_ALIDDNS=y" >> .config
-          echo "CONFIG_FIRMWARE_INCLUDE_CFDDNS=y" >> .config
-          echo "CONFIG_FIRMWARE_INCLUDE_DNSPOD=y" >> .config
-
-          echo "CONFIG_FIRMWARE_INCLUDE_TURBOACC=y" >> .config
-          echo "CONFIG_FIRMWARE_ENABLE_FULLNAT=y" >> .config
-          echo "CONFIG_FIRMWARE_ENABLE_BBR=y" >> .config
-          sed -i '/CONFIG_FIRMWARE_ENABLE_FASTNAT/d' .config
-
-          echo "CONFIG_FIRMWARE_INCLUDE_CLASH_META=y" >> .config
-          echo "CONFIG_FIRMWARE_CLASH_WEB_CN=y" >> .config
-          sed -i '/CONFIG_FIRMWARE_CLASH_WEB_EN/d' .config
-
-      - name: Add custom startup script
-        run: |
-          mkdir -p /opt/rt-n56u/trunk/user_config/etc/storage/
-          cat > /opt/rt-n56u/trunk/user_config/etc/storage/custom.sh <<'SCRIPT'
-#!/bin/sh
-uci set turboacc.config.hw_flow='1'
-uci set turboacc.config.sw_flow='1'
-uci set turboacc.config.sfe_flow='1'
-uci set turboacc.config.fullcone_nat='0'
-uci set turboacc.config.bbr_cca='1'
-uci commit turboacc
-
-iptables -t mangle -F PREROUTING
-iptables -t mangle -A PREROUTING -p tcp -j TPROXY --on-port 7893 --on-ip 127.0.0.1 --tproxy-mark 0x01
-iptables -t mangle -A PREROUTING -p udp -j TPROXY --on-port 7893 --on-ip 127.0.0.1 --tproxy-mark 0x01
-ip rule add fwmark 0x01 table 100
-ip route add local 0.0.0.0/0 dev lo table 100
-SCRIPT
-          chmod +x /opt/rt-n56u/trunk/user_config/etc/storage/custom.sh
-
-      - name: Add Clash config
-        run: |
-          mkdir -p /opt/rt-n56u/trunk/user_config/etc/clash/
-          cat > /opt/rt-n56u/trunk/user_config/etc/clash/config.yaml <<'YAML'
-mixed-port: 7890
-tproxy-port: 7893
-allow-lan: true
-bind-address: '*'
-mode: rule
-log-level: warning
-ipv6: false
-iptables:
-  enable: false
-dns:
-  enable: true
-  listen: 0.0.0.0:53
-  enhanced-mode: redir-host
-  default-nameserver:
-    - 223.5.5.5
-    - 114.114.114.114
-  nameserver:
-    - 223.5.5.5
-    - 114.114.114.114
-  fallback:
-    - 1.1.1.1
-    - 8.8.8.8
-rules:
-  - RULE-SET,cn,DIRECT
-  - RULE-SET,global,PROXY
-  - MATCH,PROXY
-YAML
-
+      # 开始编译固件
       - name: Build firmware
         run: |
           cd /opt/rt-n56u/trunk
-          ./build_firmware.sh
-
-      - name: Upload firmware
+          cp configs/templates/NETGEAR-BZV.config .config
+          chmod +x build_firmware.sh
+          ./build_firmware.sh V=s
+          
+      # 上传编译好的固件
+      - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: R6800-firmware
+          name: R6800-Firmware-$(date +%Y%m%d)
           path: /opt/rt-n56u/trunk/images/*.trx
           retention-days: 30
