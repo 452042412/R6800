@@ -16,8 +16,7 @@ jobs:
       - name: Install full dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev \
-            git unzip zip file wget curl
+          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev git unzip zip file wget curl
 
       - name: Clone rt-n56u & Download toolchain
         run: |
@@ -29,8 +28,7 @@ jobs:
       - name: Create NETGEAR-BZV dir
         run: mkdir -p /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
 
-      # 👇 全程只用 echo 单行写入，无任何 <<EOF
-      - name: Write board.mk (echo only)
+      - name: Write board.mk
         run: |
           echo "BOARD_NAME := NETGEAR-BZV" > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
           echo "CONFIG_MT7615_5G_ANT_TX=4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
@@ -38,7 +36,7 @@ jobs:
           echo "CONFIG_MT7615_4X4=y" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
           echo "CONFIG_MT7621_CPU_CLOCK=1000" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
 
-      - name: Write kernel config (echo only)
+      - name: Write kernel config
         run: |
           echo "CONFIG_RAETH_ESW_PORT_WAN=4" > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
           echo "CONFIG_RAETH_ESW_PORT_LAN1=3" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
@@ -46,12 +44,12 @@ jobs:
           echo "CONFIG_RAETH_ESW_PORT_LAN3=1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
           echo "CONFIG_RAETH_ESW_PORT_LAN4=0" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
 
-      - name: Write board.h (echo only)
+      - name: Write board.h (修正版)
         run: |
-          echo "/* NETGEAR-BZV */" > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "/* NETGEAR-BZV (R6800) */" > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_PID \"NETGEAR-BZV\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_NAME \"NETGEAR-BZV\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_DESC \"NETGEAR Dual MT7615 Wireless Router\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_DESC \"NETGEAR R6800 Dual MT7615 Wireless Router\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_VENDOR_NAME \"NETGEAR Co., Ltd.\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_BOOT_TIME 20" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_FLASH_TIME 120" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
@@ -59,31 +57,35 @@ jobs:
           echo "#define BOARD_GPIO_BTN_WPS 18" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_GPIO_BTN_FN1 14" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_GPIO_LED_WIFI 5" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#undef BOARD_GPIO_LED_ALL" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#undef BOARD_GPIO_LED_POWER" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#undef BOARD_GPIO_LED_LAN" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#undef BOARD_GPIO_LED_WAN" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#undef BOARD_GPIO_LED_USB" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#undef BOARD_GPIO_LED_ROUTER" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_GPIO_USB_PWR 11" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_GPIO_POWER_LED 7" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_GPIO_WAN_LED 6" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_GPIO_LAN_LED 8" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_GPIO_RESET_ACTIVE_LOW 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_HAS_5G_11AC 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_HAS_2G_11N 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_NUM_ANT_5G_TX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_NUM_ANT_5G_RX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_NUM_ANT_2G_TX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_NUM_ANT_2G_RX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ETH_LEDS 0" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_NUM_ETH_LEDS 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_NUM_ETH_EPHY 5" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_HAS_EPHY_L1000 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_HAS_EPHY_W1000 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_NUM_UPHY_USB3 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
 
+      - name: Create base .config (修正 NAND)
+        run: |
+          cd /opt/rt-n56u/trunk
+          cp configs/templates/PSG1208.config .config
+          sed -i 's/CONFIG_TARGET_BOARD=.*/CONFIG_TARGET_BOARD="NETGEAR-BZV"/' .config
+          sed -i 's/CONFIG_FIRMWARE_NAND_FLASH=n/CONFIG_FIRMWARE_NAND_FLASH=y/' .config
+          sed -i 's/CONFIG_FIRMWARE_FLASH_SIZE=.*/CONFIG_FIRMWARE_FLASH_SIZE=134217728/' .config
+
       - name: Build firmware
         run: |
           cd /opt/rt-n56u/trunk
-          make clean
-          make defconfig
-          echo "CONFIG_TARGET_BOARD=\"NETGEAR-BZV\"" >> .config
           ./build_firmware.sh V=s
 
       - name: Upload firmware artifact
