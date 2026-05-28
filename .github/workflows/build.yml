@@ -44,11 +44,11 @@ jobs:
           git config --global http.lowSpeedLimit 0
           git config --global http.lowSpeedTime 999999
 
-      # 下载工具链
+      # 下载工具链（修正 wget 重试参数）
       - name: Download prebuilt toolchain
         run: |
           cd ./rt-n6u
-          wget --retry=10 --timeout=600 -O toolchain.tar.xz https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-mipsel.tar.xz
+          wget --tries=10 --timeout=600 -O toolchain.tar.xz https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-mipsel.tar.xz
           tar -xJf toolchain.tar.xz -C ./
           rm -f toolchain.tar.xz
           # 工具链检查
@@ -161,7 +161,7 @@ jobs:
           cd ./rt-n6u/trunk/images
           md5sum *.trx > firmware.md5
 
-      # 上传
+      # 上传固件
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
