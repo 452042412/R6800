@@ -1,4 +1,4 @@
-name: R6800 Firmware Build
+name: R6800 Firmware Build (Mirror Source)
 
 on:
   push:
@@ -18,12 +18,17 @@ jobs:
             autoconf automake libgmp3-dev libmpc-dev libmpfr-dev texinfo python3-docutils libtool-bin
           sudo chmod -R 777 /opt
 
-      - name: Clone source & prepare toolchain (direct download)
+      - name: Clone source from mirror (stable)
         run: |
-          git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n6u
+          # 使用国内镜像拉取源码，彻底避开 GitHub 网络波动
+          git clone --depth=1 https://gitcode.com/mirrors/hanwckf/rt-n56u.git /opt/rt-n6u
           cd /opt/rt-n6u
-          # 直接下载工具链包，不使用脚本
-          wget --tries=5 --timeout=120 -O toolchain.tar.xz https://github.com/hanwckf/rt-n56u/releases/download/toolchain/toolchain-mipsel.tar.xz
+
+      - name: Download prebuilt toolchain from mirror
+        run: |
+          cd /opt/rt-n6u
+          # 使用稳定镜像地址，不会404/超时
+          wget --tries=5 --timeout=120 -O toolchain.tar.xz https://ghproxy.com/https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-mipsel.tar.xz
           tar -xJf toolchain.tar.xz -C /opt/rt-n6u/
           rm -f toolchain.tar.xz
 
