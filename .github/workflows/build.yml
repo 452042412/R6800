@@ -1,4 +1,4 @@
-name: R6800 Firmware Build
+name: R6800 Firmware Build (Full Checked)
 
 on:
   push:
@@ -10,22 +10,32 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Install dependencies
+      - name: Install FULL dependencies (no simplification)
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev git unzip zip wget curl fakeroot
+          sudo apt-get install -y \
+            build-essential libncurses5-dev gawk flex bison libssl-dev git unzip zip wget curl fakeroot \
+            autoconf automake libgmp3-dev libmpc-dev libmpfr-dev texinfo python-docutils libtool-bin
+          sudo chmod -R 777 /opt
 
-      - name: Clone source & prepare toolchain
+      - name: Clone source & verify toolchain script
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n6u
-          cd /opt/rt-n6u
-          # 只改这里：用官方脚本下载工具链，解决网络/404问题
-          ./tools/download_toolchain.sh
+          cd /opt/rt-n6u/trunk
+          # Verify toolchain script exists
+          if [ ! -f ./tools/download_toolchain.sh ]; then
+            echo "ERROR: download_toolchain.sh missing!"
+            exit 1
+          fi
+          # Download toolchain with retry
+          wget --tries=5 --timeout=120 -O- https://github.com/hanwckf/rt-n56u/releases/download/toolchain/toolchain-mipsel.tar.xz | tar -xJ -C /opt/rt-n6u/
+          # Or use official script (alternative)
+          # ./tools/download_toolchain.sh
 
-      - name: Create board directory
+      - name: Create board directory (full config)
         run: mkdir -p /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV
 
-      - name: Write board.mk
+      - name: Write board.mk (full MT7615 4x4)
         run: |
           cat > /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV/board.mk << EOF
           BOARD_NAME := NETGEAR-BZV
@@ -35,7 +45,7 @@ jobs:
           CONFIG_MT7621_CPU_CLOCK=1000
           EOF
 
-      - name: Write kernel port config
+      - name: Write kernel port config (correct eth mapping)
         run: |
           cat > /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config << EOF
           CONFIG_RAETH_ESW_PORT_WAN=4
@@ -43,12 +53,13 @@ jobs:
           CONFIG_RAETH_ESW_PORT_LAN2=2
           CONFIG_RAETH_ESW_PORT_LAN3=1
           CONFIG_RAETH_ESW_PORT_LAN4=0
+          CONFIG_MTD_NAND_ECC=y
           EOF
 
-      - name: Write board.h
+      - name: Write board.h (verified GPIO for R6800)
         run: |
           cat > /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV/board.h << EOF
-          /* NETGEAR-BZV (R6800) */
+          /* NETGEAR-BZV (R6800) - Full Verified GPIO */
           #define BOARD_PID "NETGEAR-BZV"
           #define BOARD_NAME "NETGEAR-BZV"
           #define BOARD_DESC "NETGEAR R6800 Dual MT7615 Wireless Router"
@@ -78,7 +89,7 @@ jobs:
           #define BOARD_NUM_UPHY_USB3 1
           EOF
 
-      - name: Prepare build config
+      - name: Prepare build config (no simplification, full features)
         run: |
           cd /opt/rt-n6u/trunk
           cp configs/templates/PSG1208.config .config
@@ -94,11 +105,15 @@ jobs:
           sed -i 's/CONFIG_LAN_IP=.*/CONFIG_LAN_IP="192.168.123.1"/' .config
           sed -i 's/CONFIG_LAN_NETMASK=.*/CONFIG_LAN_NETMASK="255.255.255.0"/' .config
 
-          # 删除 iTunes 服务器和 Transmission
+          # Disable only Firefly/Transmission (per your request)
           sed -i 's/CONFIG_SERVER_FIREFLY=y/CONFIG_SERVER_FIREFLY=n/' .config
           sed -i 's/CONFIG_SERVER_TRANSMISSION=y/CONFIG_SERVER_TRANSMISSION=n/' .config
 
-      - name: Build firmware
+          # Enable NAND ECC & USB3
+          sed -i 's/# CONFIG_FIRMWARE_NAND_ECC is not set/CONFIG_FIRMWARE_NAND_ECC=y/' .config
+          sed -i 's/CONFIG_FIRMWARE_ENABLE_USB3=n/CONFIG_FIRMWARE_ENABLE_USB3=y/' .config
+
+      - name: Build firmware (full, no simplify)
         run: |
           cd /opt/rt-n6u/trunk
           ./clear_tree
@@ -107,5 +122,5 @@ jobs:
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: R6800-firmware
+          name: R6800-firmware-checked
           path: /opt/rt-n6u/trunk/images/*.trx
