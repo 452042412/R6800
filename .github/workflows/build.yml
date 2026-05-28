@@ -18,11 +18,14 @@ jobs:
             autoconf automake libgmp3-dev libmpc-dev libmpfr-dev texinfo python3-docutils libtool-bin
           sudo chmod -R 777 /opt
 
-      - name: Clone source & prepare toolchain (fixed path)
+      - name: Clone source & prepare toolchain (direct download)
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n6u
-          cd /opt/rt-n6u/trunk
-          ./tools/download_toolchain.sh
+          cd /opt/rt-n6u
+          # 直接下载工具链包，不使用脚本
+          wget --tries=5 --timeout=120 -O toolchain.tar.xz https://github.com/hanwckf/rt-n56u/releases/download/toolchain/toolchain-mipsel.tar.xz
+          tar -xJf toolchain.tar.xz -C /opt/rt-n6u/
+          rm -f toolchain.tar.xz
 
       - name: Create board directory
         run: mkdir -p /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV
