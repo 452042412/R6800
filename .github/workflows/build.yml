@@ -18,12 +18,14 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev git unzip zip file wget curl
 
-      - name: Clone rt-n56u & Download toolchain
+      - name: Clone rt-n56u & Download toolchain (修正路径)
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n56u
           cd /opt/rt-n56u/toolchain-mipsel
           chmod +x dl_toolchain.sh
-          for i in {1..3}; do ./dl_toolchain.sh && break; sleep 5; done
+          ./dl_toolchain.sh
+          # 把下载的工具链移动到脚本预期的路径
+          ln -s /opt/rt-n56u/toolchain-mipsel/toolchain-3.4.x /opt/rt-n56u/toolchain-3.4.x
 
       - name: Create NETGEAR-BZV dir
         run: mkdir -p /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
@@ -93,23 +95,19 @@ jobs:
         run: |
           cd /opt/rt-n56u/trunk
 
-          # 1. 修改 .config 核心配置
+          # 固化IP配置
           sed -i 's/CONFIG_LAN_IP=.*/CONFIG_LAN_IP="192.168.123.1"/' .config
           sed -i 's/CONFIG_LAN_NETMASK=.*/CONFIG_LAN_NETMASK="255.255.255.0"/' .config
-
-          # 2. 修改 board.h
           sed -i '/#define CONFIG_LAN_IP/d' configs/boards/NETGEAR-BZV/board.h
           sed -i '/#define CONFIG_LAN_NETMASK/d' configs/boards/NETGEAR-BZV/board.h
           echo "#define CONFIG_LAN_IP \"192.168.123.1\"" >> configs/boards/NETGEAR-BZV/board.h
           echo "#define CONFIG_LAN_NETMASK \"255.255.255.0\"" >> configs/boards/NETGEAR-BZV/board.h
-
-          # 3. 修改 defaults.h 底层固化
           sed -i 's/DEF_LAN_ADDR.*/DEF_LAN_ADDR\t\t"192.168.123.1"/' user/shared/defaults.h
           sed -i 's/DEF_LAN_MASK.*/DEF_LAN_MASK\t\t"255.255.255.0"/' user/shared/defaults.h
           sed -i 's/DEF_LAN_DHCP_BEG.*/DEF_LAN_DHCP_BEG\t"192.168.123.100"/' user/shared/defaults.h
           sed -i 's/DEF_LAN_DHCP_END.*/DEF_LAN_DHCP_END\t"192.168.123.200"/' user/shared/defaults.h
 
-          # 4. 编译
+          # 编译
           ./clear_tree
           ./build_firmware_modify V=s
 
