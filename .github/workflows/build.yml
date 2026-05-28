@@ -43,7 +43,7 @@ jobs:
       - name: 整机LED + WAN/LAN网口灯 + 复位键完整适配
         run: |
           cd /opt/rt-n56u/trunk/board/rt-n56u/netgear_bzv
-          cat >> board.mk << 'CONFIG'
+          cat >> board.mk <<'CONFIG'
 # 系统主指示灯
 CONFIG_LED_NORMAL_ON=y
 CONFIG_LED_WAN_LOST_BLINK_FAST=y
@@ -124,7 +124,7 @@ CONFIG
 
       - name: 开机脚本 | 默认开启硬件加速 + SFE+BBR，预留TPROXY规则
         run: |
-          cat > /opt/rt-n56u/trunk/user_config/etc/storage/custom.sh << 'EOF'
+          cat > /opt/rt-n56u/trunk/user_config/etc/storage/custom.sh <<'EOF'
 #!/bin/sh
 # 日常默认：开启硬件流量分载 + 软件转发 + BBR，关闭全锥NAT
 uci set turboacc.config.hw_flow='1'
@@ -144,7 +144,7 @@ EOF
 
       - name: 写入内置Clash配置文件（默认不启动）
         run: |
-          cat > /opt/rt-n56u/trunk/user_config/etc/clash/config.yaml << 'YAML'
+          cat > /opt/rt-n56u/trunk/user_config/etc/clash/config.yaml <<'YAML'
 mixed-port: 7890
 tproxy-port: 7893
 allow-lan: true
