@@ -12,12 +12,11 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    # 开启出错即时终止，便于排查问题
+    # ✅ 修复：移除无效的continue-on-error配置，保留其他defaults设置
     defaults:
       run:
         shell: bash
         working-directory: .
-        continue-on-error: false
     steps:
       - uses: actions/checkout@v4
 
@@ -31,10 +30,10 @@ jobs:
       # 系统换源+安装依赖（补充缺失依赖、增加出错终止）
       - name: 系统初始化
         run: |
-          set -e  # 命令出错立即终止
+          set -e  # 命令出错立即终止（替代continue-on-error: false）
           sudo sed -i 's@http://.*.ubuntu.com@https://mirrors.aliyun.com@g' /etc/apt/sources.list
           sudo apt-get update -y
-          # 补充Padavan编译常见缺失依赖（libssl-dev/zlib1g-dev等）
+          # 补充Padavan编译常见缺失依赖
           sudo apt-get install -y --no-install-recommends \
             build-essential libncurses5-dev git unzip wget curl fakeroot bc \
             libssl-dev zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev flex bison
