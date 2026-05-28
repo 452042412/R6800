@@ -13,34 +13,41 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 补全完整编译依赖
       - name: Install full dependencies
         run: |
           sudo apt-get update -y
           sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev \
             git unzip zip file wget curl
 
-      # 拉取源码 + 下载工具链（加权限+重试）
       - name: Clone rt-n56u & Download toolchain
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n56u
           cd /opt/rt-n56u/toolchain-mipsel
           chmod +x dl_toolchain.sh
-          # 重试3次防止下载失败
           for i in {1..3}; do ./dl_toolchain.sh && break; sleep 5; done
 
-      # 创建机型目录
       - name: Create NETGEAR-BZV dir
         run: mkdir -p /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
 
-      # 复制模板配置（关键！否则 board.mk / kernel.config 不存在）
-      - name: Copy board template files
+      # 👇 不再复制模板，直接创建配置文件
+      - name: Create board.mk (no template)
         run: |
           cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
-          cp ../../templates/NETGEAR-BZV.board.mk board.mk
-          cp ../../templates/NETGEAR-BZV.kernel.config kernel-3.4.x.config
+          echo "BOARD_NAME := NETGEAR-BZV" > board.mk
+          echo "CONFIG_MT7615_5G_ANT_TX=4" >> board.mk
+          echo "CONFIG_MT7615_5G_ANT_RX=4" >> board.mk
+          echo "CONFIG_MT7615_4X4=y" >> board.mk
+          echo "CONFIG_MT7621_CPU_CLOCK=1000" >> board.mk
 
-      # 逐行写入 board.h（无EOF语法问题）
+      - name: Create kernel config (no template)
+        run: |
+          cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
+          echo "CONFIG_RAETH_ESW_PORT_WAN=4" > kernel-3.4.x.config
+          echo "CONFIG_RAETH_ESW_PORT_LAN1=3" >> kernel-3.4.x.config
+          echo "CONFIG_RAETH_ESW_PORT_LAN2=2" >> kernel-3.4.x.config
+          echo "CONFIG_RAETH_ESW_PORT_LAN3=1" >> kernel-3.4.x.config
+          echo "CONFIG_RAETH_ESW_PORT_LAN4=0" >> kernel-3.4.x.config
+
       - name: Write board.h config
         run: |
           echo "/* NETGEAR-BZV */" > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
@@ -73,38 +80,13 @@ jobs:
           echo "#define BOARD_HAS_EPHY_W1000 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_NUM_UPHY_USB3 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
 
-      # 配置 WAN/LAN 端口映射
-      - name: Set WAN/LAN port map
-        run: |
-          sed -i 's/CONFIG_RAETH_ESW_PORT_WAN=.*/CONFIG_RAETH_ESW_PORT_WAN=4/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-          sed -i 's/CONFIG_RAETH_ESW_PORT_LAN1=.*/CONFIG_RAETH_ESW_PORT_LAN1=3/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-          sed -i 's/CONFIG_RAETH_ESW_PORT_LAN2=.*/CONFIG_RAETH_ESW_PORT_LAN2=2/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-          sed -i 's/CONFIG_RAETH_ESW_PORT_LAN3=.*/CONFIG_RAETH_ESW_PORT_LAN3=1/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-          sed -i 's/CONFIG_RAETH_ESW_PORT_LAN4=.*/CONFIG_RAETH_ESW_PORT_LAN4=0/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-
-      # 开启 5G 4x4 MIMO
-      - name: Enable 5G 4x4
-        run: |
-          cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
-          sed -i 's/CONFIG_MT7615_5G_ANT_TX=3/CONFIG_MT7615_5G_ANT_TX=4/' board.mk
-          sed -i 's/CONFIG_MT7615_5G_ANT_RX=3/CONFIG_MT7615_5G_ANT_RX=4/' board.mk
-          echo "CONFIG_MT7615_4X4=y" >> board.mk
-
-      # MT7621 超频至 1000MHz
-      - name: Overclock CPU to 1000MHz
-        run: |
-          cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
-          sed -i '/CONFIG_MT7621_CPU_CLOCK/d' board.mk
-          echo "CONFIG_MT7621_CPU_CLOCK=1000" >> board.mk
-
-      # 编译固件（开启详细日志）
       - name: Build firmware
         run: |
           cd /opt/rt-n56u/trunk
-          cp configs/templates/NETGEAR-BZV.config .config
+          # 注意：这里用通用模板配置，再叠加你的修改
+          cp configs/templates/MT7621.config .config
           ./build_firmware.sh V=s
 
-      # 上传固件
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
