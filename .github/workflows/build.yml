@@ -31,8 +31,8 @@ jobs:
       - name: Write board.mk
         run: |
           echo "BOARD_NAME := NETGEAR-BZV" > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
-          echo "CONFIG_MT7615_5G_ANT_TX=4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
-          echo "CONFIG_MT7615_5G_ANT_RX=4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
+          echo "CONFIG_MT7615_5GANT_TX=4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
+          echo "CONFIG_MT7615_5GANT_RX=4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
           echo "CONFIG_MT7615_4X4=y" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
           echo "CONFIG_MT7621_CPU_CLOCK=1000" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
 
@@ -89,29 +89,29 @@ jobs:
           sed -i 's/CONFIG_WIFI_AGGREGATION=n/CONFIG_WIFI_AGGREGATION=y/' .config
           sed -i 's/CONFIG_WIFI_AMSDU=n/CONFIG_WIFI_AMSDU=y/' .config
 
-- name: Build firmware (固化IP:192.168.123.1)
-  run: |
-    cd /opt/rt-n56u/trunk
+      - name: Build firmware (固化IP:192.168.123.1)
+        run: |
+          cd /opt/rt-n56u/trunk
 
-    # 1. 修改 .config 核心配置（主生效）
-    sed -i 's/CONFIG_LAN_IP=.*/CONFIG_LAN_IP="192.168.123.1"/' .config
-    sed -i 's/CONFIG_LAN_NETMASK=.*/CONFIG_LAN_NETMASK="255.255.255.0"/' .config
+          # 1. 修改 .config 核心配置
+          sed -i 's/CONFIG_LAN_IP=.*/CONFIG_LAN_IP="192.168.123.1"/' .config
+          sed -i 's/CONFIG_LAN_NETMASK=.*/CONFIG_LAN_NETMASK="255.255.255.0"/' .config
 
-    # 2. 修改 board.h（双重保险，防止被覆盖）
-    sed -i '/#define CONFIG_LAN_IP/d' configs/boards/NETGEAR-BZV/board.h
-    sed -i '/#define CONFIG_LAN_NETMASK/d' configs/boards/NETGEAR-BZV/board.h
-    echo "#define CONFIG_LAN_IP \"192.168.123.1\"" >> configs/boards/NETGEAR-BZV/board.h
-    echo "#define CONFIG_LAN_NETMASK \"255.255.255.0\"" >> configs/boards/NETGEAR-BZV/board.h
+          # 2. 修改 board.h
+          sed -i '/#define CONFIG_LAN_IP/d' configs/boards/NETGEAR-BZV/board.h
+          sed -i '/#define CONFIG_LAN_NETMASK/d' configs/boards/NETGEAR-BZV/board.h
+          echo "#define CONFIG_LAN_IP \"192.168.123.1\"" >> configs/boards/NETGEAR-BZV/board.h
+          echo "#define CONFIG_LAN_NETMASK \"255.255.255.0\"" >> configs/boards/NETGEAR-BZV/board.h
 
-    # 3. 修改 defaults.h（最底层默认值，彻底固化）
-    sed -i 's/DEF_LAN_ADDR.*/DEF_LAN_ADDR\t\t"192.168.123.1"/' user/shared/defaults.h
-    sed -i 's/DEF_LAN_MASK.*/DEF_LAN_MASK\t\t"255.255.255.0"/' user/shared/defaults.h
-    sed -i 's/DEF_LAN_DHCP_BEG.*/DEF_LAN_DHCP_BEG\t"192.168.123.100"/' user/shared/defaults.h
-    sed -i 's/DEF_LAN_DHCP_END.*/DEF_LAN_DHCP_END\t"192.168.123.200"/' user/shared/defaults.h
+          # 3. 修改 defaults.h 底层固化
+          sed -i 's/DEF_LAN_ADDR.*/DEF_LAN_ADDR\t\t"192.168.123.1"/' user/shared/defaults.h
+          sed -i 's/DEF_LAN_MASK.*/DEF_LAN_MASK\t\t"255.255.255.0"/' user/shared/defaults.h
+          sed -i 's/DEF_LAN_DHCP_BEG.*/DEF_LAN_DHCP_BEG\t"192.168.123.100"/' user/shared/defaults.h
+          sed -i 's/DEF_LAN_DHCP_END.*/DEF_LAN_DHCP_END\t"192.168.123.200"/' user/shared/defaults.h
 
-    # 4. 清理并编译
-    ./clear_tree
-    ./build_firmware_modify V=s
+          # 4. 编译
+          ./clear_tree
+          ./build_firmware_modify V=s
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
