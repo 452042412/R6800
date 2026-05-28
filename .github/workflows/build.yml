@@ -19,7 +19,6 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n6u
           cd /opt/rt-n6u
-          # 修复404的关键：使用镜像地址
           wget -O toolchain-3.4.x.tar.bz2 https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-3.4.x.tar.bz2
           tar -xf toolchain-3.4.x.tar.bz2
           rm -f toolchain-3.4.x.tar.bz2
@@ -95,6 +94,12 @@ jobs:
           sed -i 's/CONFIG_WIFI_AMSDU=n/CONFIG_WIFI_AMSDU=y/' .config
           sed -i 's/CONFIG_LAN_IP=.*/CONFIG_LAN_IP="192.168.123.1"/' .config
           sed -i 's/CONFIG_LAN_NETMASK=.*/CONFIG_LAN_NETMASK="255.255.255.0"/' .config
+
+          ###########################################################
+          # 你要删除的功能：关闭 iTunes 服务器 + 关闭 Transmission
+          ###########################################################
+          sed -i 's/CONFIG_SERVER_FIREFLY=y/CONFIG_SERVER_FIREFLY=n/' .config
+          sed -i 's/CONFIG_SERVER_TRANSMISSION=y/CONFIG_SERVER_TRANSMISSION=n/' .config
 
       - name: Build firmware
         run: |
