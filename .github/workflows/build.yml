@@ -44,7 +44,7 @@ jobs:
           echo "CONFIG_RAETH_ESW_PORT_LAN3=1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
           echo "CONFIG_RAETH_ESW_PORT_LAN4=0" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
 
-      - name: Write board.h (修正版)
+      - name: Write board.h
         run: |
           echo "/* NETGEAR-BZV (R6800) */" > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_PID \"NETGEAR-BZV\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
@@ -75,18 +75,36 @@ jobs:
           echo "#define BOARD_HAS_EPHY_W1000 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
           echo "#define BOARD_NUM_UPHY_USB3 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
 
-      - name: Create base .config (修正 NAND)
+      - name: Create base .config (修正 NAND + 无线最优)
         run: |
           cd /opt/rt-n56u/trunk
           cp configs/templates/PSG1208.config .config
           sed -i 's/CONFIG_TARGET_BOARD=.*/CONFIG_TARGET_BOARD="NETGEAR-BZV"/' .config
           sed -i 's/CONFIG_FIRMWARE_NAND_FLASH=n/CONFIG_FIRMWARE_NAND_FLASH=y/' .config
           sed -i 's/CONFIG_FIRMWARE_FLASH_SIZE=.*/CONFIG_FIRMWARE_FLASH_SIZE=134217728/' .config
+          sed -i 's/CONFIG_WIFI_REGION=.*/CONFIG_WIFI_REGION="CN"/' .config
+          sed -i 's/CONFIG_5G_CHANNEL_WIDTH=.*/CONFIG_5G_CHANNEL_WIDTH=80/' .config
+          sed -i 's/CONFIG_2G_CHANNEL_WIDTH=.*/CONFIG_2G_CHANNEL_WIDTH=40/' .config
+          sed -i 's/CONFIG_WIFI_TX_POWER=.*/CONFIG_WIFI_TX_POWER=20/' .config
+          sed -i 's/CONFIG_WIFI_AGGREGATION=n/CONFIG_WIFI_AGGREGATION=y/' .config
+          sed -i 's/CONFIG_WIFI_AMSDU=n/CONFIG_WIFI_AMSDU=y/' .config
 
-      - name: Build firmware
+      - name: Build firmware (自动识别编译脚本)
         run: |
           cd /opt/rt-n56u/trunk
-          ./build_firmware.sh V=s
+          ls -la
+          # 尝试不同的编译脚本名
+          if [ -f ./build.sh ]; then
+            ./build.sh V=s
+          elif [ -f ./make.sh ]; then
+            ./make.sh V=s
+          elif [ -f ./firmware.sh ]; then
+            ./firmware.sh V=s
+          else
+            echo "未找到编译脚本，尝试 make menuconfig && make"
+            make menuconfig -n
+            make
+          fi
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
