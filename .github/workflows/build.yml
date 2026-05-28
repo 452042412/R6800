@@ -1,4 +1,4 @@
-name: R6800 Firmware Build (Full Mirror)
+name: R6800 Firmware Build
 
 on:
   push:
@@ -9,17 +9,17 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout your repo
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      # ========== 1. 系统 APT 换源（阿里云） ==========
+      # APT 换源
       - name: Replace APT sources to Aliyun
         run: |
           sudo cp /etc/apt/sources.list /etc/apt/sources.list.bak
           sudo sed -i 's@http://.*.ubuntu.com@https://mirrors.aliyun.com@g' /etc/apt/sources.list
           sudo apt-get update -y
 
-      # ========== 2. 安装依赖（换源后） ==========
+      # 安装依赖
       - name: Install build dependencies
         run: |
           sudo apt-get install -y \
@@ -27,38 +27,34 @@ jobs:
             autoconf automake libgmp3-dev libmpc-dev libmpfr-dev texinfo python3-docutils libtool-bin
           sudo chmod -R 777 /opt
 
-      # ========== 3. Git 全局代理（ghproxy） ==========
-      - name: Set Git global proxy for GitHub
-        run: |
-          git config --global url."https://ghproxy.com/https://github.com/".insteadOf "https://github.com/"
-          git config --global url."https://ghproxy.com/https://raw.githubusercontent.com/".insteadOf "https://raw.githubusercontent.com/"
+      # ============================
+      # 🔥 最稳拉取源码（官方 GitHub）
+      # ============================
+      - name: Clone rt-n56u (stable network)
+        uses: actions/checkout@v4
+        with:
+          repository: hanwckf/rt-n56u
+          path: /opt/rt-n6u
+          fetch-depth: 1
 
-      # ========== 4. 克隆 rt-n56u 源码（ghproxy 加速） ==========
-      - name: Clone rt-n56u source via ghproxy
+      # Git 网络优化
+      - name: Optimize git for weak network
         run: |
-          cd /opt
-          git clone https://ghproxy.com/https://github.com/hanwckf/rt-n56u.git rt-n6u
-          cd rt-n6u
+          git config --global core.compression 0
+          git config --global http.sslVerify false
+          git config --global http.postBuffer 524288000
+          git config --global http.lowSpeedLimit 0
+          git config --global http.lowSpeedTime 999999
 
-      # ========== 5. 替换工具链下载脚本（国内源） ==========
-      - name: Modify download_toolchain.sh to use domestic mirrors
+      # 工具链直接下载
+      - name: Download prebuilt toolchain
         run: |
-          cd /opt/rt-n6u/trunk/tools
-          # 备份原脚本
-          cp download_toolchain.sh download_toolchain.sh.bak
-          # 替换下载地址为 ghproxy 代理
-          sed -i 's|https://github.com|https://ghproxy.com/https://github.com|g' download_toolchain.sh
-          sed -i 's|https://bitbucket.org|https://ghproxy.com/https://bitbucket.org|g' download_toolchain.sh
-          # 也可以直接替换成国内镜像（如果有）
-          # 例如：sed -i 's|https://github.com/xxx|https://gitee.com/xxx|g' download_toolchain.sh
+          cd /opt/rt-n6u
+          wget --retry=10 --timeout=600 -O toolchain.tar.xz https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-mipsel.tar.xz
+          tar -xJf toolchain.tar.xz -C /opt/rt-n6u/
+          rm -f toolchain.tar.xz
 
-      # ========== 6. 下载工具链（换源后） ==========
-      - name: Download toolchain (mirror)
-        run: |
-          cd /opt/rt-n6u/trunk
-          ./tools/download_toolchain.sh
-
-      # ========== 7. 你的 R6800 硬件配置（完全保留） ==========
+      # R6800 硬件配置
       - name: Create board directory
         run: mkdir -p /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV
 
@@ -115,7 +111,7 @@ jobs:
           #define BOARD_NUM_UPHY_USB3 1
           EOF
 
-      # ========== 8. 编译配置（完全保留） ==========
+      # 编译配置
       - name: Prepare build config
         run: |
           cd /opt/rt-n6u/trunk
@@ -132,24 +128,22 @@ jobs:
           sed -i 's/CONFIG_LAN_IP=.*/CONFIG_LAN_IP="192.168.123.1"/' .config
           sed -i 's/CONFIG_LAN_NETMASK=.*/CONFIG_LAN_NETMASK="255.255.255.0"/' .config
 
-          # 禁用 iTunes 服务器、Transmission
           sed -i 's/CONFIG_SERVER_FIREFLY=y/CONFIG_SERVER_FIREFLY=n/' .config
           sed -i 's/CONFIG_SERVER_TRANSMISSION=y/CONFIG_SERVER_TRANSMISSION=n/' .config
 
-          # 分区防护
           sed -i 's/CONFIG_FIRMWARE_SKIP_BOOTLOADER=n/CONFIG_FIRMWARE_SKIP_BOOTLOADER=y/' .config
           sed -i 's/CONFIG_MTD_PARTITION_PROTECT=n/CONFIG_MTD_PARTITION_PROTECT=y/' .config
 
-      # ========== 9. 开始编译 ==========
+      # 编译
       - name: Build firmware
         run: |
           cd /opt/rt-n6u/trunk
           ./clear_tree
           fakeroot ./build_firmware_modify NETGEAR-BZV
 
-      # ========== 10. 上传固件 ==========
+      # 上传固件
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: R6800-firmware-mirror
+          name: R6800-firmware
           path: /opt/rt-n6u/trunk/images/*.trx
