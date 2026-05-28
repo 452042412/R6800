@@ -13,39 +13,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 安装完整编译依赖（rt-n56u 必需）
-      - name: Install full build dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev \
-            git unzip zip libz-dev libglib2.0-dev intltool autopoint gettext \
-            cmake python3 python3-distutils util-linux file wget curl
+          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev
 
-      - name: Clone rt-n56u source (hanwckf)
+      - name: Clone rt-n56u source
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n56u
           cd /opt/rt-n56u/toolchain-mipsel
-          chmod +x dl_toolchain.sh
           ./dl_toolchain.sh
 
-      # 写入 R6800 专用 board.h（LED + 复位按键）
-      - name: Write R6800 board.h
+      - name: Write board.h (LED + Reset Key)
         run: |
           cat > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h <<'EOF'
-/* NETGEAR R6800 (MT7621AT + MT7603 + MT7615) */
+/* NETGEAR-BZV */
 #define BOARD_PID "NETGEAR-BZV"
 #define BOARD_NAME "NETGEAR-BZV"
-#define BOARD_DESC "NETGEAR R6800 Dual MT7615 Wireless Router"
+#define BOARD_DESC "NETGEAR Dual MT7615 Wireless Router"
 #define BOARD_VENDOR_NAME "NETGEAR Co., Ltd."
 #define BOARD_BOOT_TIME 20
 #define BOARD_FLASH_TIME 120
-
-/* GPIO Key */
 #define BOARD_GPIO_BTN_RESET 12
 #define BOARD_GPIO_BTN_WPS 18
 #define BOARD_GPIO_BTN_FN1 14
-
-/* GPIO LED */
 #define BOARD_GPIO_LED_WIFI 5
 
 #undef BOARD_GPIO_LED_ALL
@@ -55,14 +46,11 @@ jobs:
 #undef BOARD_GPIO_LED_USB
 #undef BOARD_GPIO_LED_ROUTER
 
-/* WiFi 配置 */
 #define BOARD_HAS_5G_11AC 1
 #define BOARD_NUM_ANT_5G_TX 4
 #define BOARD_NUM_ANT_5G_RX 4
 #define BOARD_NUM_ANT_2G_TX 4
 #define BOARD_NUM_ANT_2G_RX 4
-
-/* 网口配置 */
 #define BOARD_NUM_ETH_LEDS 0
 #define BOARD_NUM_ETH_EPHY 5
 #define BOARD_HAS_EPHY_L1000 1
@@ -70,43 +58,35 @@ jobs:
 #define BOARD_NUM_UPHY_USB3 1
 EOF
 
-      # 配置 WAN/LAN 网口映射（R6800 标准顺序）
-      - name: Set WAN/LAN port map
+      - name: Set WAN/LAN Port
         run: |
-          CONFIG_PATH="/opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config"
-          sed -i 's/^CONFIG_RAETH_ESW_PORT_WAN=.*/CONFIG_RAETH_ESW_PORT_WAN=4/' $CONFIG_PATH
-          sed -i 's/^CONFIG_RAETH_ESW_PORT_LAN1=.*/CONFIG_RAETH_ESW_PORT_LAN1=3/' $CONFIG_PATH
-          sed -i 's/^CONFIG_RAETH_ESW_PORT_LAN2=.*/CONFIG_RAETH_ESW_PORT_LAN2=2/' $CONFIG_PATH
-          sed -i 's/^CONFIG_RAETH_ESW_PORT_LAN3=.*/CONFIG_RAETH_ESW_PORT_LAN3=1/' $CONFIG_PATH
-          sed -i 's/^CONFIG_RAETH_ESW_PORT_LAN4=.*/CONFIG_RAETH_ESW_PORT_LAN4=0/' $CONFIG_PATH
+          sed -i 's/CONFIG_RAETH_ESW_PORT_WAN=.*/CONFIG_RAETH_ESW_PORT_WAN=4/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
+          sed -i 's/CONFIG_RAETH_ESW_PORT_LAN1=.*/CONFIG_RAETH_ESW_PORT_LAN1=3/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
+          sed -i 's/CONFIG_RAETH_ESW_PORT_LAN2=.*/CONFIG_RAETH_ESW_PORT_LAN2=2/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
+          sed -i 's/CONFIG_RAETH_ESW_PORT_LAN3=.*/CONFIG_RAETH_ESW_PORT_LAN3=1/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
+          sed -i 's/CONFIG_RAETH_ESW_PORT_LAN4=.*/CONFIG_RAETH_ESW_PORT_LAN4=0/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
 
-      # 5G 开启 4x4 天线
-      - name: Enable 5G 4x4 MIMO
+      - name: 5G 4x4
         run: |
-          BOARD_MK="/opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk"
-          sed -i 's/CONFIG_MT7615_5G_ANT_TX=3/CONFIG_MT7615_5G_ANT_TX=4/' $BOARD_MK
-          sed -i 's/CONFIG_MT7615_5G_ANT_RX=3/CONFIG_MT7615_5G_ANT_RX=4/' $BOARD_MK
-          echo "CONFIG_MT7615_4X4=y" >> $BOARD_MK
+          cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
+          sed -i 's/CONFIG_MT7615_5G_ANT_TX=3/CONFIG_MT7615_5G_ANT_TX=4/' board.mk
+          sed -i 's/CONFIG_MT7615_5G_ANT_RX=3/CONFIG_MT7615_5G_ANT_RX=4/' board.mk
+          echo "CONFIG_MT7615_4X4=y" >> board.mk
 
-      # MT7621 超频到 1000MHz（稳定频率）
-      - name: Overclock MT7621 to 1000MHz
+      - name: Overclock 1000MHz
         run: |
-          BOARD_MK="/opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk"
-          sed -i '/CONFIG_MT7621_CPU_CLOCK/d' $BOARD_MK
-          echo "CONFIG_MT7621_CPU_CLOCK=1000" >> $BOARD_MK
+          cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
+          sed -i '/CONFIG_MT7621_CPU_CLOCK/d' board.mk
+          echo "CONFIG_MT7621_CPU_CLOCK=1000" >> board.mk
 
-      # 开始编译固件
-      - name: Build firmware
+      - name: Build
         run: |
           cd /opt/rt-n56u/trunk
           cp configs/templates/NETGEAR-BZV.config .config
-          chmod +x build_firmware.sh
-          ./build_firmware.sh V=s
-          
-      # 上传编译好的固件
-      - name: Upload firmware artifact
+          ./build_firmware.sh
+
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: R6800-Firmware-$(date +%Y%m%d)
+          name: R6800-firmware
           path: /opt/rt-n56u/trunk/images/*.trx
-          retention-days: 30
