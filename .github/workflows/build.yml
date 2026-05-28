@@ -29,62 +29,76 @@ jobs:
       - name: Create NETGEAR-BZV dir
         run: mkdir -p /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
 
-      # 👇 不再复制模板，直接创建配置文件
-      - name: Create board.mk (no template)
+      # 1. 手动创建 board.mk（无模板）
+      - name: Create board.mk manually
         run: |
           cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
-          echo "BOARD_NAME := NETGEAR-BZV" > board.mk
-          echo "CONFIG_MT7615_5G_ANT_TX=4" >> board.mk
-          echo "CONFIG_MT7615_5G_ANT_RX=4" >> board.mk
-          echo "CONFIG_MT7615_4X4=y" >> board.mk
-          echo "CONFIG_MT7621_CPU_CLOCK=1000" >> board.mk
+          cat > board.mk <<'EOF'
+BOARD_NAME := NETGEAR-BZV
+CONFIG_MT7615_5G_ANT_TX=4
+CONFIG_MT7615_5G_ANT_RX=4
+CONFIG_MT7615_4X4=y
+CONFIG_MT7621_CPU_CLOCK=1000
+EOF
 
-      - name: Create kernel config (no template)
+      # 2. 手动创建 kernel-3.4.x.config（无模板）
+      - name: Create kernel config manually
         run: |
           cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
-          echo "CONFIG_RAETH_ESW_PORT_WAN=4" > kernel-3.4.x.config
-          echo "CONFIG_RAETH_ESW_PORT_LAN1=3" >> kernel-3.4.x.config
-          echo "CONFIG_RAETH_ESW_PORT_LAN2=2" >> kernel-3.4.x.config
-          echo "CONFIG_RAETH_ESW_PORT_LAN3=1" >> kernel-3.4.x.config
-          echo "CONFIG_RAETH_ESW_PORT_LAN4=0" >> kernel-3.4.x.config
+          cat > kernel-3.4.x.config <<'EOF'
+CONFIG_RAETH_ESW_PORT_WAN=4
+CONFIG_RAETH_ESW_PORT_LAN1=3
+CONFIG_RAETH_ESW_PORT_LAN2=2
+CONFIG_RAETH_ESW_PORT_LAN3=1
+CONFIG_RAETH_ESW_PORT_LAN4=0
+EOF
 
-      - name: Write board.h config
+      # 3. 手动创建 board.h（无模板）
+      - name: Create board.h manually
         run: |
-          echo "/* NETGEAR-BZV */" > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_PID \"NETGEAR-BZV\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NAME \"NETGEAR-BZV\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_DESC \"NETGEAR Dual MT7615 Wireless Router\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_VENDOR_NAME \"NETGEAR Co., Ltd.\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_BOOT_TIME 20" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_FLASH_TIME 120" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_BTN_RESET 12" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_BTN_WPS 18" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_BTN_FN1 14" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_LED_WIFI 5" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#undef BOARD_GPIO_LED_ALL" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#undef BOARD_GPIO_LED_POWER" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#undef BOARD_GPIO_LED_LAN" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#undef BOARD_GPIO_LED_WAN" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#undef BOARD_GPIO_LED_USB" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#undef BOARD_GPIO_LED_ROUTER" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_HAS_5G_11AC 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ANT_5G_TX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ANT_5G_RX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ANT_2G_TX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ANT_2G_RX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ETH_LEDS 0" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ETH_EPHY 5" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_HAS_EPHY_L1000 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_HAS_EPHY_W1000 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_UPHY_USB3 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          cat > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h <<'EOF'
+/* NETGEAR-BZV */
+#define BOARD_PID "NETGEAR-BZV"
+#define BOARD_NAME "NETGEAR-BZV"
+#define BOARD_DESC "NETGEAR Dual MT7615 Wireless Router"
+#define BOARD_VENDOR_NAME "NETGEAR Co., Ltd."
+#define BOARD_BOOT_TIME 20
+#define BOARD_FLASH_TIME 120
+#define BOARD_GPIO_BTN_RESET 12
+#define BOARD_GPIO_BTN_WPS 18
+#define BOARD_GPIO_BTN_FN1 14
+#define BOARD_GPIO_LED_WIFI 5
 
-      - name: Build firmware
+#undef BOARD_GPIO_LED_ALL
+#undef BOARD_GPIO_LED_POWER
+#undef BOARD_GPIO_LED_LAN
+#undef BOARD_GPIO_LED_WAN
+#undef BOARD_GPIO_LED_USB
+#undef BOARD_GPIO_LED_ROUTER
+
+#define BOARD_HAS_5G_11AC 1
+#define BOARD_NUM_ANT_5G_TX 4
+#define BOARD_NUM_ANT_5G_RX 4
+#define BOARD_NUM_ANT_2G_TX 4
+#define BOARD_NUM_ANT_2G_RX 4
+#define BOARD_NUM_ETH_LEDS 0
+#define BOARD_NUM_ETH_EPHY 5
+#define BOARD_HAS_EPHY_L1000 1
+#define BOARD_HAS_EPHY_W1000 1
+#define BOARD_NUM_UPHY_USB3 1
+EOF
+
+      # 4. 关键：不复制任何模板，直接用 menuconfig 生成基础 .config
+      - name: Build firmware (menuconfig default)
         run: |
           cd /opt/rt-n56u/trunk
-          # 注意：这里用通用模板配置，再叠加你的修改
-          cp configs/templates/MT7621.config .config
+          # 先清理旧配置
+          make clean
+          # 直接使用默认配置生成 .config
+          make defconfig
+          # 强制选择 NETGEAR-BZV 机型
+          echo "CONFIG_TARGET_BOARD=\"NETGEAR-BZV\"" >> .config
+          # 开始编译
           ./build_firmware.sh V=s
 
       - name: Upload firmware artifact
