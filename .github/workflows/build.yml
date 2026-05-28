@@ -1,9 +1,6 @@
 name: R6800 Firmware Build
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
@@ -12,72 +9,15 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev git unzip zip wget curl fakeroot
+          sudo apt-get update
+          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev git unzip wget curl fakeroot
 
       - name: Clone source & prepare toolchain
         run: |
-          git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n6u
+          git clone --depth 1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n6u
           cd /opt/rt-n6u
-          wget -O toolchain-3.4.x.tar.bz2 https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-3.4.x.tar.bz2
-          tar -xf toolchain-3.4.x.tar.bz2
-          rm -f toolchain-3.4.x.tar.bz2
-
-      - name: Create board directory
-        run: mkdir -p /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV
-
-      - name: Write board.mk
-        run: |
-          cat > /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV/board.mk << EOF
-          BOARD_NAME := NETGEAR-BZV
-          CONFIG_MT7615_5G_ANT_TX=4
-          CONFIG_MT7615_5G_ANT_RX=4
-          CONFIG_MT7615_4X4=y
-          CONFIG_MT7621_CPU_CLOCK=1000
-          EOF
-
-      - name: Write kernel port config
-        run: |
-          cat > /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config << EOF
-          CONFIG_RAETH_ESW_PORT_WAN=4
-          CONFIG_RAETH_ESW_PORT_LAN1=3
-          CONFIG_RAETH_ESW_PORT_LAN2=2
-          CONFIG_RAETH_ESW_PORT_LAN3=1
-          CONFIG_RAETH_ESW_PORT_LAN4=0
-          EOF
-
-      - name: Write board.h
-        run: |
-          cat > /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV/board.h << EOF
-          /* NETGEAR-BZV (R6800) */
-          #define BOARD_PID "NETGEAR-BZV"
-          #define BOARD_NAME "NETGEAR-BZV"
-          #define BOARD_DESC "NETGEAR R6800 Dual MT7615 Wireless Router"
-          #define BOARD_VENDOR_NAME "NETGEAR Co., Ltd."
-          #define BOARD_BOOT_TIME 20
-          #define BOARD_FLASH_TIME 120
-          #define BOARD_GPIO_BTN_RESET 12
-          #define BOARD_GPIO_BTN_WPS 18
-          #define BOARD_GPIO_BTN_FN1 14
-          #define BOARD_GPIO_LED_WIFI 5
-          #define BOARD_GPIO_USB_PWR 11
-          #define BOARD_GPIO_POWER_LED 7
-          #define BOARD_GPIO_WAN_LED 6
-          #define BOARD_GPIO_LAN_LED 8
-          #define BOARD_GPIO_RESET_ACTIVE_LOW 1
-
-          #define BOARD_HAS_5G_11AC 1
-          #define BOARD_HAS_2G_11N 1
-          #define BOARD_NUM_ANT_5G_TX 4
-          #define BOARD_NUM_ANT_5G_RX 4
-          #define BOARD_NUM_ANT_2G_TX 4
-          #define BOARD_NUM_ANT_2G_RX 4
-          #define BOARD_NUM_ETH_LEDS 1
-          #define BOARD_NUM_ETH_EPHY 5
-          #define BOARD_HAS_EPHY_L1000 1
-          #define BOARD_HAS_EPHY_W1000 1
-          #define BOARD_NUM_UPHY_USB3 1
-          EOF
+          # 关键：使用源码自带脚本下载工具链
+          ./tools/download_toolchain.sh
 
       - name: Prepare build config
         run: |
@@ -95,9 +35,7 @@ jobs:
           sed -i 's/CONFIG_LAN_IP=.*/CONFIG_LAN_IP="192.168.123.1"/' .config
           sed -i 's/CONFIG_LAN_NETMASK=.*/CONFIG_LAN_NETMASK="255.255.255.0"/' .config
 
-          ###########################################################
-          # 你要删除的功能：关闭 iTunes 服务器 + 关闭 Transmission
-          ###########################################################
+          # 删除 iTunes 服务器和 Transmission
           sed -i 's/CONFIG_SERVER_FIREFLY=y/CONFIG_SERVER_FIREFLY=n/' .config
           sed -i 's/CONFIG_SERVER_TRANSMISSION=y/CONFIG_SERVER_TRANSMISSION=n/' .config
 
