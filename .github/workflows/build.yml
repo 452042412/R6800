@@ -1,4 +1,4 @@
-name: R6800 Firmware Build
+name: R6800 Firmware Build (Full Check)
 
 on:
   push:
@@ -25,19 +25,17 @@ jobs:
           sudo apt-get install -y \
             build-essential libncurses5-dev gawk flex bison libssl-dev git unzip zip wget curl fakeroot \
             autoconf automake libgmp3-dev libmpc-dev libmpfr-dev texinfo python3-docutils libtool-bin
-          sudo chmod -R 777 /opt
+          sudo chmod -R 777 .
 
-      # ============================
-      # 🔥 最稳拉取源码（官方 GitHub）
-      # ============================
-      - name: Clone rt-n56u (stable network)
+      # 拉取源码（稳定）
+      - name: Clone rt-n56u
         uses: actions/checkout@v4
         with:
           repository: hanwckf/rt-n56u
-          path: /opt/rt-n6u
+          path: rt-n6u
           fetch-depth: 1
 
-      # Git 网络优化
+      # Git 弱网优化
       - name: Optimize git for weak network
         run: |
           git config --global core.compression 0
@@ -46,21 +44,23 @@ jobs:
           git config --global http.lowSpeedLimit 0
           git config --global http.lowSpeedTime 999999
 
-      # 工具链直接下载
+      # 下载工具链
       - name: Download prebuilt toolchain
         run: |
-          cd /opt/rt-n6u
+          cd ./rt-n6u
           wget --retry=10 --timeout=600 -O toolchain.tar.xz https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-mipsel.tar.xz
-          tar -xJf toolchain.tar.xz -C /opt/rt-n6u/
+          tar -xJf toolchain.tar.xz -C ./
           rm -f toolchain.tar.xz
+          # 工具链检查
+          ls ./toolchain-mipsel/bin/mipsel-linux-uclibc-gcc || exit 1
 
       # R6800 硬件配置
       - name: Create board directory
-        run: mkdir -p /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV
+        run: mkdir -p ./rt-n6u/trunk/configs/boards/NETGEAR-BZV
 
       - name: Write board.mk
         run: |
-          cat > /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV/board.mk << EOF
+          cat > ./rt-n6u/trunk/configs/boards/NETGEAR-BZV/board.mk << EOF
           BOARD_NAME := NETGEAR-BZV
           CONFIG_MT7615_5G_ANT_TX=4
           CONFIG_MT7615_5G_ANT_RX=4
@@ -70,7 +70,7 @@ jobs:
 
       - name: Write kernel port config
         run: |
-          cat > /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config << EOF
+          cat > ./rt-n6u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config << EOF
           CONFIG_RAETH_ESW_PORT_WAN=4
           CONFIG_RAETH_ESW_PORT_LAN1=3
           CONFIG_RAETH_ESW_PORT_LAN2=2
@@ -80,7 +80,7 @@ jobs:
 
       - name: Write board.h
         run: |
-          cat > /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV/board.h << EOF
+          cat > ./rt-n6u/trunk/configs/boards/NETGEAR-BZV/board.h << EOF
           /* NETGEAR-BZV (R6800) */
           #define BOARD_PID "NETGEAR-BZV"
           #define BOARD_NAME "NETGEAR-BZV"
@@ -111,39 +111,61 @@ jobs:
           #define BOARD_NUM_UPHY_USB3 1
           EOF
 
-      # 编译配置
+      # 编译配置（含强制检查）
       - name: Prepare build config
         run: |
-          cd /opt/rt-n6u/trunk
+          cd ./rt-n6u/trunk
           cp configs/templates/PSG1208.config .config
+          # 核心配置
           sed -i 's/CONFIG_TARGET_BOARD=.*/CONFIG_TARGET_BOARD="NETGEAR-BZV"/' .config
           sed -i 's/CONFIG_FIRMWARE_NAND_FLASH=n/CONFIG_FIRMWARE_NAND_FLASH=y/' .config
           sed -i 's/CONFIG_FIRMWARE_FLASH_SIZE=.*/CONFIG_FIRMWARE_FLASH_SIZE=134217728/' .config
+          sed -i 's/CONFIG_MT7621_CPU_CLOCK=.*/CONFIG_MT7621_CPU_CLOCK=1000/' .config
+          # WiFi 强制开启
+          sed -i 's/CONFIG_FIRMWARE_ENABLE_WIFI=n/CONFIG_FIRMWARE_ENABLE_WIFI=y/' .config
+          sed -i 's/CONFIG_FIRMWARE_INCLUDE_MT7615=n/CONFIG_FIRMWARE_INCLUDE_MT7615=y/' .config
+          # 网络基础
+          sed -i 's/CONFIG_FIRMWARE_ENABLE_IPV6=n/CONFIG_FIRMWARE_ENABLE_IPV6=y/' .config
+          sed -i 's/CONFIG_FIRMWARE_ENABLE_USB=n/CONFIG_FIRMWARE_ENABLE_USB=y/' .config
+          # WiFi 参数
           sed -i 's/CONFIG_WIFI_REGION=.*/CONFIG_WIFI_REGION="CN"/' .config
           sed -i 's/CONFIG_5G_CHANNEL_WIDTH=.*/CONFIG_5G_CHANNEL_WIDTH=80/' .config
           sed -i 's/CONFIG_2G_CHANNEL_WIDTH=.*/CONFIG_2G_CHANNEL_WIDTH=40/' .config
           sed -i 's/CONFIG_WIFI_TX_POWER=.*/CONFIG_WIFI_TX_POWER=20/' .config
-          sed -i 's/CONFIG_WIFI_AGGREGATION=n/CONFIG_WIFI_AGGREGATION=y/' .config
-          sed -i 's/CONFIG_WIFI_AMSDU=n/CONFIG_WIFI_AMSDU=y/' .config
+          # LAN IP
           sed -i 's/CONFIG_LAN_IP=.*/CONFIG_LAN_IP="192.168.123.1"/' .config
           sed -i 's/CONFIG_LAN_NETMASK=.*/CONFIG_LAN_NETMASK="255.255.255.0"/' .config
-
+          # 关闭冗余
           sed -i 's/CONFIG_SERVER_FIREFLY=y/CONFIG_SERVER_FIREFLY=n/' .config
           sed -i 's/CONFIG_SERVER_TRANSMISSION=y/CONFIG_SERVER_TRANSMISSION=n/' .config
-
+          # 安全
           sed -i 's/CONFIG_FIRMWARE_SKIP_BOOTLOADER=n/CONFIG_FIRMWARE_SKIP_BOOTLOADER=y/' .config
           sed -i 's/CONFIG_MTD_PARTITION_PROTECT=n/CONFIG_MTD_PARTITION_PROTECT=y/' .config
+          # 配置检查
+          grep -q "CONFIG_FIRMWARE_INCLUDE_MT7615=y" .config || exit 1
+          grep -q "CONFIG_TARGET_BOARD=\"NETGEAR-BZV\"" .config || exit 1
 
-      # 编译
+      # 编译（含错误处理）
       - name: Build firmware
         run: |
-          cd /opt/rt-n6u/trunk
+          cd ./rt-n6u/trunk
+          export FORCE_UNSAFE_CONFIGURE=1
           ./clear_tree
           fakeroot ./build_firmware_modify NETGEAR-BZV
+          # 编译后检查
+          ls ./images/*.trx || exit 1
 
-      # 上传固件
+      # 生成 MD5
+      - name: Generate firmware MD5
+        run: |
+          cd ./rt-n6u/trunk/images
+          md5sum *.trx > firmware.md5
+
+      # 上传
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: R6800-firmware
-          path: /opt/rt-n6u/trunk/images/*.trx
+          name: R6800-firmware-full
+          path: |
+            ./rt-n6u/trunk/images/*.trx
+            ./rt-n6u/trunk/images/firmware.md5
