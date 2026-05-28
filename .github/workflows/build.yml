@@ -1,4 +1,4 @@
-name: R6800 Firmware Build (Final Fix)
+name: R6800 Firmware Build (Archive Version)
 
 on:
   push:
@@ -27,26 +27,24 @@ jobs:
             autoconf automake libgmp3-dev libmpc-dev libmpfr-dev texinfo python3-docutils libtool-bin
           sudo chmod -R 777 .
 
-      # 3. 拉取 rt-n56u 源码
-      - name: Clone rt-n56u
-        uses: actions/checkout@v4
-        with:
-          repository: hanwckf/rt-n56u
-          path: rt-n6u
-          fetch-depth: 1
-
-      # 4. 工具链下载（路径修正，直接用 trunk 目录下的脚本）
-      - name: Download official toolchain
+      # 3. 直接下载完整 rt-n56u 源码包（含工具链）
+      - name: Download full rt-n56u archive
         run: |
+          # 下载稳定归档包（含 trunk 和工具链）
+          wget --tries=10 --timeout=600 -O rt-n56u.tar.gz https://github.com/hanwckf/rt-n56u/archive/refs/heads/master.tar.gz
+          # 解压
+          tar -xzf rt-n56u.tar.gz
+          # 重命名为统一目录
+          mv rt-n56u-master rt-n6u
+          # 工具链预下载
           cd ./rt-n6u/trunk
-          # 检查脚本是否存在
-          ls -la ./tools/download_toolchain.sh
-          # 执行脚本
-          ./tools/download_toolchain.sh
-          # 工具链检查
+          wget --tries=10 --timeout=600 -O ../toolchain-mipsel.tar.xz https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-mipsel.tar.xz
+          tar -xJf ../toolchain-mipsel.tar.xz -C ../
+          rm -f ../toolchain-mipsel.tar.xz
+          # 检查工具链
           ls ../toolchain-mipsel/bin/mipsel-linux-uclibc-gcc || exit 1
 
-      # 5. R6800 硬件配置
+      # 4. R6800 硬件配置
       - name: Create board directory
         run: mkdir -p ./rt-n6u/trunk/configs/boards/NETGEAR-BZV
 
@@ -103,7 +101,7 @@ jobs:
           #define BOARD_NUM_UPHY_USB3 1
           EOF
 
-      # 6. 编译配置（含强制检查）
+      # 5. 编译配置（含强制检查）
       - name: Prepare build config
         run: |
           cd ./rt-n6u/trunk
@@ -137,7 +135,7 @@ jobs:
           grep -q "CONFIG_FIRMWARE_INCLUDE_MT7615=y" .config || exit 1
           grep -q "CONFIG_TARGET_BOARD=\"NETGEAR-BZV\"" .config || exit 1
 
-      # 7. 编译（含错误处理）
+      # 6. 编译（含错误处理）
       - name: Build firmware
         run: |
           cd ./rt-n6u/trunk
@@ -147,13 +145,13 @@ jobs:
           # 编译后检查
           ls ./images/*.trx || exit 1
 
-      # 8. 生成 MD5
+      # 7. 生成 MD5
       - name: Generate firmware MD5
         run: |
           cd ./rt-n6u/trunk/images
           md5sum *.trx > firmware.md5
 
-      # 9. 上传固件
+      # 8. 上传固件
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
