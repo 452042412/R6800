@@ -16,14 +16,15 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev git unzip zip wget curl
+          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev git unzip zip wget curl fakeroot
 
       - name: Clone source & prepare toolchain
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n56u
-          cd /opt/rt-n56u/toolchain-mipsel
-          chmod +x dl_toolchain.sh
-          ./dl_toolchain.sh
+          cd /opt/rt-n56u
+          wget -O toolchain-3.4.x.tar.bz2 https://github.com/hanwckf/rt-n56u/releases/download/toolchain/toolchain-3.4.x.tar.bz2
+          tar -xf toolchain-3.4.x.tar.bz2
+          rm -f toolchain-3.4.x.tar.bz2
 
       - name: Create board directory
         run: mkdir -p /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
@@ -89,7 +90,6 @@ jobs:
           sed -i 's/CONFIG_WIFI_AGGREGATION=n/CONFIG_WIFI_AGGREGATION=y/' .config
           sed -i 's/CONFIG_WIFI_AMSDU=n/CONFIG_WIFI_AMSDU=y/' .config
 
-      # 👇 这里用 写法三：变量版
       - name: Build firmware
         run: |
           cd /opt/rt-n56u/trunk
@@ -108,7 +108,7 @@ jobs:
           sed -i "s/DEF_LAN_DHCP_END.*/DEF_LAN_DHCP_END\t\"$DHCP_END\"/" user/shared/defaults.h
 
           ./clear_tree
-          ./build_firmware_modify V=s
+          fakeroot ./build_firmware_modify NETGEAR-BZV
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
