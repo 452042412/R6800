@@ -1,4 +1,4 @@
-name: R6800 Firmware Build (Full Check)
+name: R6800 Firmware Build (Official Toolchain)
 
 on:
   push:
@@ -12,14 +12,14 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # APT 换源
+      # 1. 系统 APT 换源
       - name: Replace APT sources to Aliyun
         run: |
           sudo cp /etc/apt/sources.list /etc/apt/sources.list.bak
           sudo sed -i 's@http://.*.ubuntu.com@https://mirrors.aliyun.com@g' /etc/apt/sources.list
           sudo apt-get update -y
 
-      # 安装依赖
+      # 2. 安装依赖
       - name: Install build dependencies
         run: |
           sudo apt-get install -y \
@@ -27,7 +27,7 @@ jobs:
             autoconf automake libgmp3-dev libmpc-dev libmpfr-dev texinfo python3-docutils libtool-bin
           sudo chmod -R 777 .
 
-      # 拉取源码（稳定）
+      # 3. 拉取 rt-n56u 源码
       - name: Clone rt-n56u
         uses: actions/checkout@v4
         with:
@@ -35,26 +35,15 @@ jobs:
           path: rt-n6u
           fetch-depth: 1
 
-      # Git 弱网优化
-      - name: Optimize git for weak network
+      # 4. 用官方脚本下载工具链（替代失效的第三方地址）
+      - name: Download official toolchain
         run: |
-          git config --global core.compression 0
-          git config --global http.sslVerify false
-          git config --global http.postBuffer 524288000
-          git config --global http.lowSpeedLimit 0
-          git config --global http.lowSpeedTime 999999
-
-      # 下载工具链（修正 wget 重试参数）
-      - name: Download prebuilt toolchain
-        run: |
-          cd ./rt-n6u
-          wget --tries=10 --timeout=600 -O toolchain.tar.xz https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-mipsel.tar.xz
-          tar -xJf toolchain.tar.xz -C ./
-          rm -f toolchain.tar.xz
+          cd ./rt-n6u/trunk
+          ./tools/download_toolchain.sh
           # 工具链检查
-          ls ./toolchain-mipsel/bin/mipsel-linux-uclibc-gcc || exit 1
+          ls ../toolchain-mipsel/bin/mipsel-linux-uclibc-gcc || exit 1
 
-      # R6800 硬件配置
+      # 5. R6800 硬件配置
       - name: Create board directory
         run: mkdir -p ./rt-n6u/trunk/configs/boards/NETGEAR-BZV
 
@@ -111,7 +100,7 @@ jobs:
           #define BOARD_NUM_UPHY_USB3 1
           EOF
 
-      # 编译配置（含强制检查）
+      # 6. 编译配置（含强制检查）
       - name: Prepare build config
         run: |
           cd ./rt-n6u/trunk
@@ -145,7 +134,7 @@ jobs:
           grep -q "CONFIG_FIRMWARE_INCLUDE_MT7615=y" .config || exit 1
           grep -q "CONFIG_TARGET_BOARD=\"NETGEAR-BZV\"" .config || exit 1
 
-      # 编译（含错误处理）
+      # 7. 编译（含错误处理）
       - name: Build firmware
         run: |
           cd ./rt-n6u/trunk
@@ -155,17 +144,17 @@ jobs:
           # 编译后检查
           ls ./images/*.trx || exit 1
 
-      # 生成 MD5
+      # 8. 生成 MD5
       - name: Generate firmware MD5
         run: |
           cd ./rt-n6u/trunk/images
           md5sum *.trx > firmware.md5
 
-      # 上传固件
+      # 9. 上传固件
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: R6800-firmware-full
+          name: R6800-firmware-official
           path: |
             ./rt-n6u/trunk/images/*.trx
             ./rt-n6u/trunk/images/firmware.md5
