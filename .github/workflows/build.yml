@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Install FULL dependencies (fixed python-docutils)
+      - name: Install dependencies (fixed python3-docutils)
         run: |
           sudo apt-get update -y
           sudo apt-get install -y \
@@ -18,7 +18,7 @@ jobs:
             autoconf automake libgmp3-dev libmpc-dev libmpfr-dev texinfo python3-docutils libtool-bin
           sudo chmod -R 777 /opt
 
-      - name: Clone source & prepare toolchain
+      - name: Clone source & prepare toolchain (fixed path)
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n6u
           cd /opt/rt-n6u/trunk
