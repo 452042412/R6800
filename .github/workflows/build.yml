@@ -19,9 +19,8 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n6u
           cd /opt/rt-n6u
-          wget -O toolchain-3.4.x.tar.bz2 https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-3.4.x.tar.bz2
-          tar -xf toolchain-3.4.x.tar.bz2
-          rm -f toolchain-3.4.x.tar.bz2
+          # 只改这里：用官方脚本下载工具链，解决网络/404问题
+          ./tools/download_toolchain.sh
 
       - name: Create board directory
         run: mkdir -p /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV
@@ -95,9 +94,7 @@ jobs:
           sed -i 's/CONFIG_LAN_IP=.*/CONFIG_LAN_IP="192.168.123.1"/' .config
           sed -i 's/CONFIG_LAN_NETMASK=.*/CONFIG_LAN_NETMASK="255.255.255.0"/' .config
 
-          ###########################################################
-          # 已删除：iTunes 服务器 + Transmission
-          ###########################################################
+          # 删除 iTunes 服务器和 Transmission
           sed -i 's/CONFIG_SERVER_FIREFLY=y/CONFIG_SERVER_FIREFLY=n/' .config
           sed -i 's/CONFIG_SERVER_TRANSMISSION=y/CONFIG_SERVER_TRANSMISSION=n/' .config
 
