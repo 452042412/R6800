@@ -24,7 +24,11 @@ jobs:
           cd /opt/rt-n56u/toolchain-mipsel
           ./dl_toolchain.sh
 
-      - name: Write board.h (LED + Reset Key)
+      # 👇 这里自动创建目录，解决你报错的根本问题
+      - name: Create NETGEAR-BZV directory
+        run: mkdir -p /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
+
+      - name: Write board.h
         run: |
           cat > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h <<'EOF'
 /* NETGEAR-BZV */
