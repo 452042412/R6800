@@ -10,9 +10,6 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Install dependencies
         run: |
           sudo apt-get update -y
@@ -20,65 +17,71 @@ jobs:
 
       - name: Clone source & prepare toolchain
         run: |
-          git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n56u
-          cd /opt/rt-n56u
+          git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n6u
+          cd /opt/rt-n6u
           wget -O toolchain-3.4.x.tar.bz2 https://github.com/hanwckf/rt-n56u/releases/download/toolchain/toolchain-3.4.x.tar.bz2
           tar -xf toolchain-3.4.x.tar.bz2
           rm -f toolchain-3.4.x.tar.bz2
 
       - name: Create board directory
-        run: mkdir -p /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
+        run: mkdir -p /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV
 
       - name: Write board.mk
         run: |
-          echo "BOARD_NAME := NETGEAR-BZV" > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
-          echo "CONFIG_MT7615_5G_ANT_TX=4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
-          echo "CONFIG_MT7615_5G_ANT_RX=4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
-          echo "CONFIG_MT7615_4X4=y" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
-          echo "CONFIG_MT7621_CPU_CLOCK=1000" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk
+          cat > /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV/board.mk << EOF
+          BOARD_NAME := NETGEAR-BZV
+          CONFIG_MT7615_5G_ANT_TX=4
+          CONFIG_MT7615_5G_ANT_RX=4
+          CONFIG_MT7615_4X4=y
+          CONFIG_MT7621_CPU_CLOCK=1000
+          EOF
 
       - name: Write kernel port config
         run: |
-          echo "CONFIG_RAETH_ESW_PORT_WAN=4" > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-          echo "CONFIG_RAETH_ESW_PORT_LAN1=3" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-          echo "CONFIG_RAETH_ESW_PORT_LAN2=2" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-          echo "CONFIG_RAETH_ESW_PORT_LAN3=1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
-          echo "CONFIG_RAETH_ESW_PORT_LAN4=0" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
+          cat > /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config << EOF
+          CONFIG_RAETH_ESW_PORT_WAN=4
+          CONFIG_RAETH_ESW_PORT_LAN1=3
+          CONFIG_RAETH_ESW_PORT_LAN2=2
+          CONFIG_RAETH_ESW_PORT_LAN3=1
+          CONFIG_RAETH_ESW_PORT_LAN4=0
+          EOF
 
       - name: Write board.h
         run: |
-          echo "/* NETGEAR-BZV (R6800) */" > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_PID \"NETGEAR-BZV\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NAME \"NETGEAR-BZV\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_DESC \"NETGEAR R6800 Dual MT7615 Wireless Router\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_VENDOR_NAME \"NETGEAR Co., Ltd.\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_BOOT_TIME 20" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_FLASH_TIME 120" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_BTN_RESET 12" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_BTN_WPS 18" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_BTN_FN1 14" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_LED_WIFI 5" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_USB_PWR 11" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_POWER_LED 7" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_WAN_LED 6" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_LAN_LED 8" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_GPIO_RESET_ACTIVE_LOW 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_HAS_5G_11AC 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_HAS_2G_11N 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ANT_5G_TX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ANT_5G_RX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ANT_2G_TX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ANT_2G_RX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ETH_LEDS 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_ETH_EPHY 5" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_HAS_EPHY_L1000 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_HAS_EPHY_W1000 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
-          echo "#define BOARD_NUM_UPHY_USB3 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          cat > /opt/rt-n6u/trunk/configs/boards/NETGEAR-BZV/board.h << EOF
+          /* NETGEAR-BZV (R6800) */
+          #define BOARD_PID "NETGEAR-BZV"
+          #define BOARD_NAME "NETGEAR-BZV"
+          #define BOARD_DESC "NETGEAR R6800 Dual MT7615 Wireless Router"
+          #define BOARD_VENDOR_NAME "NETGEAR Co., Ltd."
+          #define BOARD_BOOT_TIME 20
+          #define BOARD_FLASH_TIME 120
+          #define BOARD_GPIO_BTN_RESET 12
+          #define BOARD_GPIO_BTN_WPS 18
+          #define BOARD_GPIO_BTN_FN1 14
+          #define BOARD_GPIO_LED_WIFI 5
+          #define BOARD_GPIO_USB_PWR 11
+          #define BOARD_GPIO_POWER_LED 7
+          #define BOARD_GPIO_WAN_LED 6
+          #define BOARD_GPIO_LAN_LED 8
+          #define BOARD_GPIO_RESET_ACTIVE_LOW 1
+
+          #define BOARD_HAS_5G_11AC 1
+          #define BOARD_HAS_2G_11N 1
+          #define BOARD_NUM_ANT_5G_TX 4
+          #define BOARD_NUM_ANT_5G_RX 4
+          #define BOARD_NUM_ANT_2G_TX 4
+          #define BOARD_NUM_ANT_2G_RX 4
+          #define BOARD_NUM_ETH_LEDS 1
+          #define BOARD_NUM_ETH_EPHY 5
+          #define BOARD_HAS_EPHY_L1000 1
+          #define BOARD_HAS_EPHY_W1000 1
+          #define BOARD_NUM_UPHY_USB3 1
+          EOF
 
       - name: Prepare build config
         run: |
-          cd /opt/rt-n56u/trunk
+          cd /opt/rt-n6u/trunk
           cp configs/templates/PSG1208.config .config
           sed -i 's/CONFIG_TARGET_BOARD=.*/CONFIG_TARGET_BOARD="NETGEAR-BZV"/' .config
           sed -i 's/CONFIG_FIRMWARE_NAND_FLASH=n/CONFIG_FIRMWARE_NAND_FLASH=y/' .config
@@ -89,24 +92,12 @@ jobs:
           sed -i 's/CONFIG_WIFI_TX_POWER=.*/CONFIG_WIFI_TX_POWER=20/' .config
           sed -i 's/CONFIG_WIFI_AGGREGATION=n/CONFIG_WIFI_AGGREGATION=y/' .config
           sed -i 's/CONFIG_WIFI_AMSDU=n/CONFIG_WIFI_AMSDU=y/' .config
+          sed -i 's/CONFIG_LAN_IP=.*/CONFIG_LAN_IP="192.168.123.1"/' .config
+          sed -i 's/CONFIG_LAN_NETMASK=.*/CONFIG_LAN_NETMASK="255.255.255.0"/' .config
 
       - name: Build firmware
         run: |
-          cd /opt/rt-n56u/trunk
-
-          LAN_IP="192.168.123.1"
-          LAN_MASK="255.255.255.0"
-          DHCP_BEG="192.168.123.100"
-          DHCP_END="192.168.123.200"
-
-          sed -i "s/CONFIG_LAN_IP=.*/CONFIG_LAN_IP=\"$LAN_IP\"/" .config
-          sed -i "s/CONFIG_LAN_NETMASK=.*/CONFIG_LAN_NETMASK=\"$LAN_MASK\"/" .config
-
-          sed -i "s/DEF_LAN_ADDR.*/DEF_LAN_ADDR\t\t\"$LAN_IP\"/" user/shared/defaults.h
-          sed -i "s/DEF_LAN_MASK.*/DEF_LAN_MASK\t\t\"$LAN_MASK\"/" user/shared/defaults.h
-          sed -i "s/DEF_LAN_DHCP_BEG.*/DEF_LAN_DHCP_BEG\t\"$DHCP_BEG\"/" user/shared/defaults.h
-          sed -i "s/DEF_LAN_DHCP_END.*/DEF_LAN_DHCP_END\t\"$DHCP_END\"/" user/shared/defaults.h
-
+          cd /opt/rt-n6u/trunk
           ./clear_tree
           fakeroot ./build_firmware_modify NETGEAR-BZV
 
@@ -114,4 +105,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: R6800-firmware
-          path: /opt/rt-n56u/trunk/images/*.trx
+          path: /opt/rt-n6u/trunk/images/*.trx
