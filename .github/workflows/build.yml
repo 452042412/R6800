@@ -4,7 +4,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# 配置构建缓存，加速依赖和工具链复用
 env:
   TOOLCHAIN_CACHE_KEY: toolchain-mipsel-k4.4
   DEPS_CACHE_KEY: ubuntu2204-build-deps
@@ -12,34 +11,31 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    # ✅ 修复：移除无效的continue-on-error配置，保留其他defaults设置
     defaults:
       run:
         shell: bash
         working-directory: .
     steps:
+      # ✅ 升级checkout到v4（兼容Node.js 24，解决弃用警告）
       - uses: actions/checkout@v4
 
-      # 缓存系统依赖，避免重复安装
+      # ✅ 升级cache到v4（兼容Node.js 24，解决弃用警告）
       - name: 缓存编译依赖
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /var/cache/apt/archives
           key: ${{ env.DEPS_CACHE_KEY }}-${{ runner.os }}
 
-      # 系统换源+安装依赖（补充缺失依赖、增加出错终止）
       - name: 系统初始化
         run: |
-          set -e  # 命令出错立即终止（替代continue-on-error: false）
+          set -e
           sudo sed -i 's@http://.*.ubuntu.com@https://mirrors.aliyun.com@g' /etc/apt/sources.list
           sudo apt-get update -y
-          # 补充Padavan编译常见缺失依赖
           sudo apt-get install -y --no-install-recommends \
             build-essential libncurses5-dev git unzip wget curl fakeroot bc \
             libssl-dev zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev flex bison
-          sudo chmod -R 755 .  # 替换777，更安全的权限设置
+          sudo chmod -R 755 .
 
-      # 拉取源码（增加出错终止、稀疏检出验证）
       - name: 拉取编译源码
         run: |
           set -e
@@ -48,41 +44,35 @@ jobs:
           git remote add origin https://github.com/hanwckf/rt-n56u.git
           git config core.sparseCheckout true
           echo "trunk/" >> .git/info/sparse-checkout
-          # 拉取失败重试，增加超时
-          git pull --depth=1 --retry --timeout=300 origin master
-          # 验证稀疏检出是否成功
+          git pull --depth=1 origin master
           if [ ! -d "trunk" ]; then
             echo "源码拉取失败：trunk目录不存在" && exit 1
           fi
+          if [ ! -f "trunk/download_toolchain.sh" ]; then
+            echo "错误：download_toolchain.sh 未找到" && exit 1
+          fi
+          chmod +x trunk/download_toolchain.sh
 
-      # 缓存工具链，避免重复下载
       - name: 缓存编译工具链
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: rt-n56u/toolchain-mipsel
           key: ${{ env.TOOLCHAIN_CACHE_KEY }}-${{ runner.os }}
 
-      # 官方工具链（增加权限、出错处理、重试）
       - name: 部署编译工具链
         run: |
           set -e
           cd rt-n56u
-          chmod +x trunk/download_toolchain.sh
-          # 工具链下载重试，超时设置
-          ./trunk/download_toolchain.sh mipsel || (echo "工具链下载失败，重试1次" && ./trunk/download_toolchain.sh mipsel)
-          # 验证工具链是否部署成功
+          ./trunk/download_toolchain.sh mipsel
           if [ ! -d "toolchain-mipsel" ]; then
             echo "工具链部署失败：toolchain-mipsel目录不存在" && exit 1
           fi
 
-      # 中文+软件中心（增加下载重试、完整性验证）
       - name: 部署中文语言包&软件中心
         run: |
           set -e
           cd rt-n56u/trunk
-          # wget增加重试、超时、完整性检查
           wget --tries=3 --timeout=60 -O lang_cn.tar.gz https://github.com/gorden5566/padavan/raw/master/lang_cn.tar.gz
-          # 验证压缩包完整性
           if ! tar -tzf lang_cn.tar.gz >/dev/null 2>&1; then
             echo "中文语言包压缩包损坏" && exit 1
           fi
@@ -91,12 +81,10 @@ jobs:
           wget --tries=3 --timeout=60 -O softcenter.sh https://github.com/hanwckf/rt-n56u/raw/master/trunk/user/www/softcenter.sh
           chmod +x softcenter.sh && ./softcenter.sh && rm -f softcenter.sh
 
-      # 硬件配置（优化缩进、增加文件验证）
       - name: 写入R6800硬件配置
         run: |
           set -e
           mkdir -p rt-n56u/trunk/configs/boards/NETGEAR-BZV
-          # 写入board.mk
           cat > rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk << EOF
           BOARD_NAME := NETGEAR-BZV
           KERNEL := 4.4
@@ -106,7 +94,6 @@ jobs:
           CONFIG_MT7621_CPU_CLOCK=1000
           CONFIG_MT7615_160MHZ_SUPPORT=y
           EOF
-          # 写入kernel-4.4.config
           cat > rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-4.4.config << EOF
           CONFIG_RAETH_ESW_PORT_WAN=4
           CONFIG_RAETH_ESW_PORT_LAN1=3
@@ -116,7 +103,6 @@ jobs:
           CONFIG_MT7621_ESW_MDIO_FIX=y
           CONFIG_MT7615_160MHZ=y
           EOF
-          # 写入board.h
           cat > rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h << EOF
           #define BOARD_PID "NETGEAR-BZV"
           #define BOARD_NAME "NETGEAR-BZV"
@@ -146,18 +132,15 @@ jobs:
           #define BOARD_NUM_UPHY_USB3 1
           #define BOARD_WIFI_5G_160MHZ 1
           EOF
-          # 验证配置文件是否生成
           if [ ! -f "rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h" ]; then
             echo "硬件配置文件生成失败" && exit 1
           fi
 
-      # 核心配置（精简sed、增加配置验证）
       - name: 生成编译配置
         run: |
           set -e
           cd rt-n56u/trunk
           cp configs/templates/PSG1208.config .config
-          # 精简sed命令，减少重复操作
           sed -i \
             -e 's/^CONFIG_KERNEL_VERSION=.*/CONFIG_KERNEL_VERSION="4.4"/' \
             -e 's/^CONFIG_LINUX_3_4=y/CONFIG_LINUX_3_4=n/' \
@@ -169,27 +152,21 @@ jobs:
             -e 's/^CONFIG_ETH_LED_CONTROL=n/CONFIG_ETH_LED_CONTROL=y/' \
             -e 's/^CONFIG_FIRMWARE_INCLUDE_SOFTWARE_CENTER=n/CONFIG_FIRMWARE_INCLUDE_SOFTWARE_CENTER=y/' \
             .config
-          # 验证关键配置是否生效
           if ! grep -q "CONFIG_LINUX_4_4=y" .config; then
             echo "核心配置修改失败：Linux 4.4未启用" && exit 1
           fi
 
-      # 编译+打包（增加日志输出、错误捕获）
       - name: 开始编译固件
         run: |
           set -e
           cd rt-n56u/trunk
           export TOOLCHAIN_DIR="../toolchain-mipsel"
-          # 清理编译环境
           ./clear_tree
-          # 编译时输出详细日志，便于排查
           fakeroot ./build_firmware_modify NETGEAR-BZV 2>&1 | tee build.log
-          # 验证固件是否生成
           if [ ! -f "images/*.trx" ]; then
             echo "固件编译失败：未生成trx文件" && exit 1
           fi
 
-      # 输出固件（兼容更多固件格式、增加描述）
       - name: 上传编译产物
         uses: actions/upload-artifact@v4
         with:
@@ -197,5 +174,5 @@ jobs:
           path: |
             rt-n56u/trunk/images/*.trx
             rt-n56u/trunk/images/*.bin
-            rt-n56u/trunk/build.log  # 上传编译日志，便于排查问题
-          retention-days: 7  # 固件保留7天，可按需调整
+            rt-n56u/trunk/build.log
+          retention-days: 7
