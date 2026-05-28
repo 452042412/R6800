@@ -1,15 +1,10 @@
-name: R6800 Firmware Build (Final)
+name: R6800 Firmware Build
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      reason:
-        description: 'Manual trigger reason'
-        required: false
-        default: 'Manual build'
 
 jobs:
   build:
@@ -18,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install build dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update -y
           sudo apt-get install -y \
@@ -42,7 +37,7 @@ jobs:
 
       - name: Configure LED and reset key
         run: |
-          cat >> /opt/rt-n56u/trunk/board/rt-n56u/netgear_bzv/board.mk << 'EOF'
+          cat >> /opt/rt-n56u/trunk/board/rt-n56u/netgear_bzv/board.mk <<'EOF'
 # System LED
 CONFIG_LED_NORMAL_ON=y
 CONFIG_LED_WAN_LOST_BLINK_FAST=y
@@ -121,7 +116,7 @@ EOF
 
       - name: Add custom startup script
         run: |
-          cat > /opt/rt-n56u/trunk/user_config/etc/storage/custom.sh << 'SCRIPT'
+          cat > /opt/rt-n56u/trunk/user_config/etc/storage/custom.sh <<'SCRIPT'
 #!/bin/sh
 uci set turboacc.config.hw_flow='1'
 uci set turboacc.config.sw_flow='1'
@@ -139,7 +134,7 @@ SCRIPT
 
       - name: Add Clash config
         run: |
-          cat > /opt/rt-n56u/trunk/user_config/etc/clash/config.yaml << 'YAML'
+          cat > /opt/rt-n56u/trunk/user_config/etc/clash/config.yaml <<'YAML'
 mixed-port: 7890
 tproxy-port: 7893
 allow-lan: true
