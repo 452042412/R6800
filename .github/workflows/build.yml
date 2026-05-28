@@ -10,30 +10,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 系统换源+安装依赖
       - name: 系统初始化
         run: |
           sudo sed -i 's@http://.*.ubuntu.com@https://mirrors.aliyun.com@g' /etc/apt/sources.list
           sudo apt-get update && sudo apt-get install -y build-essential libncurses5-dev git unzip wget curl fakeroot bc
           sudo chmod -R 777 .
 
-      # 拉取源码（无冗余、无冲突）
-      - name: 拉取编译源码
+      - name: 拉取编译源码（含工具链脚本）
         run: |
           mkdir -p rt-n56u && cd rt-n56u
           git init
           git remote add origin https://github.com/hanwckf/rt-n56u.git
           git config core.sparseCheckout true
+          # ✅ 关键修复：明确包含download_toolchain.sh所在路径
           echo "trunk/" >> .git/info/sparse-checkout
+          echo "trunk/download_toolchain.sh" >> .git/info/sparse-checkout
           git pull --depth=1 origin master
+          # ✅ 强制校验脚本是否存在，不存在直接报错
+          ls -l trunk/download_toolchain.sh || { echo "错误：download_toolchain.sh 未找到"; exit 1; }
+          # 额外校验脚本可执行权限
+          chmod +x trunk/download_toolchain.sh
+          echo "工具链脚本拉取成功！"
 
-      # 官方工具链（无404、无路径错误）
-      - name: 部署编译工具链
+      - name: 部署编译工具链（使用原脚本）
         run: |
           cd rt-n56u
+          # ✅ 执行官方脚本下载mipsel工具链
           ./trunk/download_toolchain.sh mipsel
+          # ✅ 二次校验工具链是否安装成功
+          [ -d toolchain-mipsel ] || { echo "错误：工具链目录不存在"; exit 1; }
+          [ -f toolchain-mipsel/bin/mipsel-linux-uclibc-gcc ] || { echo "错误：交叉编译器缺失"; exit 1; }
+          echo "工具链部署成功！"
 
-      # 中文+软件中心（无重复命令）
       - name: 部署中文语言包&软件中心
         run: |
           cd rt-n56u/trunk
@@ -42,8 +50,7 @@ jobs:
           wget -O softcenter.sh https://github.com/hanwckf/rt-n56u/raw/master/trunk/user/www/softcenter.sh
           chmod +x softcenter.sh && ./softcenter.sh && rm -f softcenter.sh
 
-      # 硬件配置（修复缩进、无冗余空格）
-      - name: 写入R6800硬件配置
+      - name: 写入R6800硬件配置（完整保留）
         run: |
           mkdir -p rt-n56u/trunk/configs/boards/NETGEAR-BZV
           cat > rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk << EOF
@@ -94,8 +101,7 @@ jobs:
           #define BOARD_WIFI_5G_160MHZ 1
           EOF
 
-      # 核心配置（无重复sed、精简冗余）
-      - name: 生成编译配置
+      - name: 生成编译配置（完整保留）
         run: |
           cd rt-n56u/trunk
           cp configs/templates/PSG1208.config .config
@@ -109,7 +115,6 @@ jobs:
           sed -i 's/^CONFIG_ETH_LED_CONTROL=n/CONFIG_ETH_LED_CONTROL=y/' .config
           sed -i 's/^CONFIG_FIRMWARE_INCLUDE_SOFTWARE_CENTER=n/CONFIG_FIRMWARE_INCLUDE_SOFTWARE_CENTER=y/' .config
 
-      # 编译+打包
       - name: 开始编译固件
         run: |
           cd rt-n56u/trunk
@@ -117,7 +122,6 @@ jobs:
           ./clear_tree
           fakeroot ./build_firmware_modify NETGEAR-BZV
 
-      # 输出固件
       - uses: actions/upload-artifact@v4
         with:
           name: R6800-固件
