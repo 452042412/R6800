@@ -1,4 +1,4 @@
-name: R6800 Firmware Build (Official Toolchain)
+name: R6800 Firmware Build (Final Fix)
 
 on:
   push:
@@ -35,10 +35,13 @@ jobs:
           path: rt-n6u
           fetch-depth: 1
 
-      # 4. 用官方脚本下载工具链（替代失效的第三方地址）
+      # 4. 工具链下载（路径修正，直接用 trunk 目录下的脚本）
       - name: Download official toolchain
         run: |
           cd ./rt-n6u/trunk
+          # 检查脚本是否存在
+          ls -la ./tools/download_toolchain.sh
+          # 执行脚本
           ./tools/download_toolchain.sh
           # 工具链检查
           ls ../toolchain-mipsel/bin/mipsel-linux-uclibc-gcc || exit 1
@@ -154,7 +157,7 @@ jobs:
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: R6800-firmware-official
+          name: R6800-firmware-final
           path: |
             ./rt-n6u/trunk/images/*.trx
             ./rt-n6u/trunk/images/firmware.md5
