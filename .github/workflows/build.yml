@@ -1,4 +1,5 @@
 name: R6800 | 网口灯适配+指示灯+复位键+硬件加速+4x4+160MHz+Clash默认关闭
+
 on:
   release:
     types: [published]
@@ -7,6 +8,7 @@ on:
       - 'v*'
   watch:
     types: [started]
+
 jobs:
   build:
     runs-on: ubuntu-18.04
@@ -82,8 +84,8 @@ CONFIG
           # 系统信息与时区语言
           sed -i 's|^CONFIG_FIRMWARE_PRODUCT_ID=.*|CONFIG_FIRMWARE_PRODUCT_ID="R6800"|g' .config
           echo "CONFIG_FIRMWARE_R6800=y" >> .config
-          echo "CONFIG_FIRMWARE_DEFAULT_TIMEZONE="CST-8"" >> .config
-          echo "CONFIG_FIRMWARE_DEFAULT_LANG="zh-CN"" >> .config
+          echo "CONFIG_FIRMWARE_DEFAULT_TIMEZONE=\"CST-8\"" >> .config
+          echo "CONFIG_FIRMWARE_DEFAULT_LANG=\"zh-CN\"" >> .config
 
           # 基础依赖
           sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
