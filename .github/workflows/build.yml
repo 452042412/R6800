@@ -13,56 +13,68 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      # 补全完整编译依赖
+      - name: Install full dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev
+          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev \
+            git unzip zip file wget curl
 
-      - name: Clone rt-n56u source
+      # 拉取源码 + 下载工具链（加权限+重试）
+      - name: Clone rt-n56u & Download toolchain
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n56u
           cd /opt/rt-n56u/toolchain-mipsel
-          ./dl_toolchain.sh
+          chmod +x dl_toolchain.sh
+          # 重试3次防止下载失败
+          for i in {1..3}; do ./dl_toolchain.sh && break; sleep 5; done
 
-      # 👇 这里自动创建目录，解决你报错的根本问题
-      - name: Create NETGEAR-BZV directory
+      # 创建机型目录
+      - name: Create NETGEAR-BZV dir
         run: mkdir -p /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
 
-      - name: Write board.h
+      # 复制模板配置（关键！否则 board.mk / kernel.config 不存在）
+      - name: Copy board template files
         run: |
-          cat > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h <<'EOF'
-/* NETGEAR-BZV */
-#define BOARD_PID "NETGEAR-BZV"
-#define BOARD_NAME "NETGEAR-BZV"
-#define BOARD_DESC "NETGEAR Dual MT7615 Wireless Router"
-#define BOARD_VENDOR_NAME "NETGEAR Co., Ltd."
-#define BOARD_BOOT_TIME 20
-#define BOARD_FLASH_TIME 120
-#define BOARD_GPIO_BTN_RESET 12
-#define BOARD_GPIO_BTN_WPS 18
-#define BOARD_GPIO_BTN_FN1 14
-#define BOARD_GPIO_LED_WIFI 5
+          cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
+          cp ../../templates/NETGEAR-BZV.board.mk board.mk
+          cp ../../templates/NETGEAR-BZV.kernel.config kernel-3.4.x.config
 
-#undef BOARD_GPIO_LED_ALL
-#undef BOARD_GPIO_LED_POWER
-#undef BOARD_GPIO_LED_LAN
-#undef BOARD_GPIO_LED_WAN
-#undef BOARD_GPIO_LED_USB
-#undef BOARD_GPIO_LED_ROUTER
+      # 逐行写入 board.h（无EOF语法问题）
+      - name: Write board.h config
+        run: |
+          echo "/* NETGEAR-BZV */" > /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_PID \"NETGEAR-BZV\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_NAME \"NETGEAR-BZV\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_DESC \"NETGEAR Dual MT7615 Wireless Router\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_VENDOR_NAME \"NETGEAR Co., Ltd.\"" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_BOOT_TIME 20" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_FLASH_TIME 120" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_GPIO_BTN_RESET 12" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_GPIO_BTN_WPS 18" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_GPIO_BTN_FN1 14" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_GPIO_LED_WIFI 5" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#undef BOARD_GPIO_LED_ALL" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#undef BOARD_GPIO_LED_POWER" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#undef BOARD_GPIO_LED_LAN" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#undef BOARD_GPIO_LED_WAN" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#undef BOARD_GPIO_LED_USB" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#undef BOARD_GPIO_LED_ROUTER" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_HAS_5G_11AC 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_NUM_ANT_5G_TX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_NUM_ANT_5G_RX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_NUM_ANT_2G_TX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_NUM_ANT_2G_RX 4" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_NUM_ETH_LEDS 0" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_NUM_ETH_EPHY 5" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_HAS_EPHY_L1000 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_HAS_EPHY_W1000 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
+          echo "#define BOARD_NUM_UPHY_USB3 1" >> /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h
 
-#define BOARD_HAS_5G_11AC 1
-#define BOARD_NUM_ANT_5G_TX 4
-#define BOARD_NUM_ANT_5G_RX 4
-#define BOARD_NUM_ANT_2G_TX 4
-#define BOARD_NUM_ANT_2G_RX 4
-#define BOARD_NUM_ETH_LEDS 0
-#define BOARD_NUM_ETH_EPHY 5
-#define BOARD_HAS_EPHY_L1000 1
-#define BOARD_HAS_EPHY_W1000 1
-#define BOARD_NUM_UPHY_USB3 1
-EOF
-
-      - name: Set WAN/LAN Port
+      # 配置 WAN/LAN 端口映射
+      - name: Set WAN/LAN port map
         run: |
           sed -i 's/CONFIG_RAETH_ESW_PORT_WAN=.*/CONFIG_RAETH_ESW_PORT_WAN=4/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
           sed -i 's/CONFIG_RAETH_ESW_PORT_LAN1=.*/CONFIG_RAETH_ESW_PORT_LAN1=3/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
@@ -70,26 +82,30 @@ EOF
           sed -i 's/CONFIG_RAETH_ESW_PORT_LAN3=.*/CONFIG_RAETH_ESW_PORT_LAN3=1/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
           sed -i 's/CONFIG_RAETH_ESW_PORT_LAN4=.*/CONFIG_RAETH_ESW_PORT_LAN4=0/' /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config
 
-      - name: 5G 4x4
+      # 开启 5G 4x4 MIMO
+      - name: Enable 5G 4x4
         run: |
           cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
           sed -i 's/CONFIG_MT7615_5G_ANT_TX=3/CONFIG_MT7615_5G_ANT_TX=4/' board.mk
           sed -i 's/CONFIG_MT7615_5G_ANT_RX=3/CONFIG_MT7615_5G_ANT_RX=4/' board.mk
           echo "CONFIG_MT7615_4X4=y" >> board.mk
 
-      - name: Overclock 1000MHz
+      # MT7621 超频至 1000MHz
+      - name: Overclock CPU to 1000MHz
         run: |
           cd /opt/rt-n56u/trunk/configs/boards/NETGEAR-BZV
           sed -i '/CONFIG_MT7621_CPU_CLOCK/d' board.mk
           echo "CONFIG_MT7621_CPU_CLOCK=1000" >> board.mk
 
-      - name: Build
+      # 编译固件（开启详细日志）
+      - name: Build firmware
         run: |
           cd /opt/rt-n56u/trunk
           cp configs/templates/NETGEAR-BZV.config .config
-          ./build_firmware.sh
+          ./build_firmware.sh V=s
 
-      - name: Upload
+      # 上传固件
+      - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
           name: R6800-firmware
