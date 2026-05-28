@@ -19,7 +19,8 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n6u
           cd /opt/rt-n6u
-          wget -O toolchain-3.4.x.tar.bz2 https://github.com/hanwckf/rt-n56u/releases/download/toolchain/toolchain-3.4.x.tar.bz2
+          # 修复404的关键：使用镜像地址
+          wget -O toolchain-3.4.x.tar.bz2 https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-3.4.x.tar.bz2
           tar -xf toolchain-3.4.x.tar.bz2
           rm -f toolchain-3.4.x.tar.bz2
 
