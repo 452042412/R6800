@@ -1,5 +1,4 @@
-name: R6800 Firmware Build (Minimal Files Only)
-
+name: R6800-K4.4-CN-160MHz-SoftCenter
 on:
   push:
     branches: [ main ]
@@ -9,156 +8,168 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 1. APT 换源 + 更新
-      - name: Replace APT sources to Aliyun
+      - name: APT 换源 & 更新
         run: |
           sudo cp /etc/apt/sources.list /etc/apt/sources.list.bak
           sudo sed -i 's@http://.*.ubuntu.com@https://mirrors.aliyun.com@g' /etc/apt/sources.list
           sudo apt-get update -y
 
-      # 2. 安装编译依赖（完整版，避免缺包失败）
-      - name: Install build dependencies
+      - name: 安装编译全依赖
         run: |
-          sudo apt-get install -y \
-            build-essential libncurses5-dev gawk flex bison libssl-dev git unzip wget curl fakeroot \
-            autoconf automake libgmp3-dev libmpc-dev libmpfr-dev texinfo python3-docutils libtool-bin \
-            zlib1g-dev libelf-dev device-tree-compiler bc ccache
+          sudo apt-get install -y build-essential libncurses5-dev gawk flex bison libssl-dev git unzip wget curl fakeroot autoconf automake libgmp3-dev libmpc-dev libmpfr-dev texinfo python3-docutils libtool-bin zlib1g-dev libelf-dev device-tree-compiler bc ccache libudev-dev gettext
           sudo chmod -R 777 .
 
-      # 3. 最小化拉取 rt-n56u（仅 trunk + 工具链目录）
-      - name: Fetch minimal rt-n56u files
+      - name: 稀疏拉取 rt-n56u 最小源码
         run: |
-          mkdir -p rt-n56u
-          cd rt-n56u
+          mkdir -p rt-n56u && cd rt-n56u
           git init
           git remote add origin https://github.com/hanwckf/rt-n56u.git
           git config core.sparseCheckout true
           echo "trunk/" >> .git/info/sparse-checkout
           echo "toolchain-mipsel/" >> .git/info/sparse-checkout
           git pull --depth=1 origin master
-          cd ..
 
-      # 4. 下载预编译工具链（覆盖，避免版本不匹配）
-      - name: Download prebuilt toolchain
+      - name: 下载并部署预编译工具链
         run: |
-          cd ./rt-n56u
+          cd rt-n56u
           rm -rf toolchain-mipsel
-          wget --tries=10 --timeout=600 -O toolchain-mipsel.tar.xz https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-mipsel.tar.xz
+          wget -O toolchain-mipsel.tar.xz https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-mipsel.tar.xz
           tar -xJf toolchain-mipsel.tar.xz
           rm -f toolchain-mipsel.tar.xz
-          ls toolchain-mipsel/bin/mipsel-linux-uclibc-gcc || exit 1
+          [ -f toolchain-mipsel/bin/mipsel-linux-uclibc-gcc ] || exit 1
 
-      # 5. R6800 硬件配置文件
-      - name: Create board config
+      - name: 部署中文语言包 + 软件中心前端
         run: |
-          mkdir -p ./rt-n56u/trunk/configs/boards/NETGEAR-BZV
-          # board.mk
-          cat > ./rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk << EOF
-          BOARD_NAME := NETGEAR-BZV
-          CONFIG_MT7615_5G_ANT_TX=4
-          CONFIG_MT7615_5G_ANT_RX=4
-          CONFIG_MT7615_4X4=y
-          CONFIG_MT7621_CPU_CLOCK=1000
-          EOF
-          # kernel-3.4.x.config
-          cat > ./rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-3.4.x.config << EOF
-          CONFIG_RAETH_ESW_PORT_WAN=4
-          CONFIG_RAETH_ESW_PORT_LAN1=3
-          CONFIG_RAETH_ESW_PORT_LAN2=2
-          CONFIG_RAETH_ESW_PORT_LAN3=1
-          CONFIG_RAETH_ESW_PORT_LAN4=0
-          EOF
-          # board.h
-          cat > ./rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h << EOF
-          /* NETGEAR-BZV (R6800) */
-          #define BOARD_PID "NETGEAR-BZV"
-          #define BOARD_NAME "NETGEAR-BZV"
-          #define BOARD_DESC "NETGEAR R6800 Dual MT7615 Wireless Router"
-          #define BOARD_VENDOR_NAME "NETGEAR Co., Ltd."
-          #define BOARD_BOOT_TIME 20
-          #define BOARD_FLASH_TIME 120
-          #define BOARD_GPIO_BTN_RESET 12
-          #define BOARD_GPIO_BTN_WPS 18
-          #define BOARD_GPIO_BTN_FN1 14
-          #define BOARD_GPIO_LED_WIFI 5
-          #define BOARD_GPIO_USB_PWR 11
-          #define BOARD_GPIO_POWER_LED 7
-          #define BOARD_GPIO_WAN_LED 6
-          #define BOARD_GPIO_LAN_LED 8
-          #define BOARD_GPIO_RESET_ACTIVE_LOW 1
+          cd rt-n56u/trunk
+          wget -O lang_cn.tar.gz https://github.com/gorden5566/padavan/raw/master/lang_cn.tar.gz
+          tar -zxf lang_cn.tar.gz -C user/www/
+          rm -f lang_cn.tar.gz
+          curl -fsL https://github.com/hanwckf/rt-n56u/raw/master/trunk/user/www/softcenter.sh | bash
+          [ -f user/www/softcenter.asp ] || exit 1
 
-          #define BOARD_HAS_5G_11AC 1
-          #define BOARD_HAS_2G_11N 1
-          #define BOARD_NUM_ANT_5G_TX 4
-          #define BOARD_NUM_ANT_5G_RX 4
-          #define BOARD_NUM_ANT_2G_TX 4
-          #define BOARD_NUM_ANT_2G_RX 4
-          #define BOARD_NUM_ETH_LEDS 1
-          #define BOARD_NUM_ETH_EPHY 5
-          #define BOARD_HAS_EPHY_L1000 1
-          #define BOARD_HAS_EPHY_W1000 1
-          #define BOARD_NUM_UPHY_USB3 1
-          EOF
-
-      # 6. 编译配置（修复语法、路径、开关错误）
-      - name: Prepare build config
+      - name: 写入 R6800 硬件配置
         run: |
-          cd ./rt-n56u/trunk
+          mkdir -p rt-n56u/trunk/configs/boards/NETGEAR-BZV
+          cat > rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk << EOF
+BOARD_NAME := NETGEAR-BZV
+KERNEL := 4.4
+CONFIG_MT7615_5G_ANT_TX=4
+CONFIG_MT7615_5G_ANT_RX=4
+CONFIG_MT7615_4X4=y
+CONFIG_MT7621_CPU_CLOCK=1000
+CONFIG_MT7615_160MHZ_SUPPORT=y
+EOF
+          cat > rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-4.4.config << EOF
+CONFIG_RAETH_ESW_PORT_WAN=4
+CONFIG_RAETH_ESW_PORT_LAN1=3
+CONFIG_RAETH_ESW_PORT_LAN2=2
+CONFIG_RAETH_ESW_PORT_LAN3=1
+CONFIG_RAETH_ESW_PORT_LAN4=0
+CONFIG_MT7621_ESW_MDIO_FIX=y
+CONFIG_MT7615_160MHZ=y
+EOF
+          cat > rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h << EOF
+#define BOARD_PID "NETGEAR-BZV"
+#define BOARD_NAME "NETGEAR-BZV"
+#define BOARD_DESC "NETGEAR R6800 无线路由器"
+#define BOARD_VENDOR_NAME "NETGEAR"
+#define BOARD_BOOT_TIME 20
+#define BOARD_FLASH_TIME 120
+#define BOARD_GPIO_BTN_RESET 12
+#define BOARD_GPIO_BTN_WPS 18
+#define BOARD_GPIO_BTN_FN1 14
+#define BOARD_GPIO_LED_WIFI 5
+#define BOARD_GPIO_USB_PWR 11
+#define BOARD_GPIO_POWER_LED 7
+#define BOARD_GPIO_WAN_LED 6
+#define BOARD_GPIO_LAN_LED 8
+#define BOARD_GPIO_RESET_ACTIVE_LOW 1
+#define BOARD_HAS_5G_11AC 1
+#define BOARD_HAS_2G_11N 1
+#define BOARD_NUM_ANT_5G_TX 4
+#define BOARD_NUM_ANT_5G_RX 4
+#define BOARD_NUM_ANT_2G_TX 4
+#define BOARD_NUM_ANT_2G_RX 4
+#define BOARD_NUM_ETH_LEDS 1
+#define BOARD_NUM_ETH_EPHY 5
+#define BOARD_HAS_EPHY_L1000 1
+#define BOARD_HAS_EPHY_W1000 1
+#define BOARD_NUM_UPHY_USB3 1
+#define BOARD_WIFI_5G_160MHZ 1
+EOF
+
+      - name: 生成完整编译配置 & 校验
+        run: |
+          cd rt-n56u/trunk
           cp configs/templates/PSG1208.config .config
-          # 核心设备
+          # 内核版本切换
+          sed -i 's/^CONFIG_KERNEL_VERSION=.*/CONFIG_KERNEL_VERSION="4.4"/' .config
+          sed -i 's/^CONFIG_LINUX_3_4=y/CONFIG_LINUX_3_4=n/' .config
+          sed -i 's/^CONFIG_LINUX_4_4=n/CONFIG_LINUX_4_4=y/' .config
+          # 硬件与闪存
           sed -i 's/^CONFIG_TARGET_BOARD=.*/CONFIG_TARGET_BOARD="NETGEAR-BZV"/' .config
-          # Flash 128MB
           sed -i 's/^CONFIG_FIRMWARE_FLASH_SIZE=.*/CONFIG_FIRMWARE_FLASH_SIZE=134217728/' .config
           sed -i 's/^CONFIG_MT7621_CPU_CLOCK=.*/CONFIG_MT7621_CPU_CLOCK=1000/' .config
-          # WiFi 必开
-          sed -i 's/^CONFIG_FIRMWARE_ENABLE_WIFI=.*/CONFIG_FIRMWARE_ENABLE_WIFI=y/' .config
-          sed -i 's/^CONFIG_FIRMWARE_INCLUDE_MT7615=.*/CONFIG_FIRMWARE_INCLUDE_MT7615=y/' .config
-          # 基础功能
-          sed -i 's/^CONFIG_FIRMWARE_ENABLE_IPV6=.*/CONFIG_FIRMWARE_ENABLE_IPV6=y/' .config
-          sed -i 's/^CONFIG_FIRMWARE_ENABLE_USB=.*/CONFIG_FIRMWARE_ENABLE_USB=y/' .config
-          # WiFi 区域与带宽
+          # 中文语言
+          sed -i 's/^CONFIG_FIRMWARE_INCLUDE_LANG_CN=n/CONFIG_FIRMWARE_INCLUDE_LANG_CN=y/' .config
+          sed -i 's/^CONFIG_FIRMWARE_DEFAULT_LANG=.*/CONFIG_FIRMWARE_DEFAULT_LANG="CN"/' .config
+          # WiFi 160MHz + 驱动
+          sed -i 's/^CONFIG_5G_CHANNEL_WIDTH=.*/CONFIG_5G_CHANNEL_WIDTH=160/' .config
+          sed -i 's/^CONFIG_MT7615_160MHZ_SUPPORT=n/CONFIG_MT7615_160MHZ_SUPPORT=y/' .config
+          sed -i 's/^CONFIG_FIRMWARE_ENABLE_WIFI=n/CONFIG_FIRMWARE_ENABLE_WIFI=y/' .config
+          sed -i 's/^CONFIG_FIRMWARE_INCLUDE_MT7615=n/CONFIG_FIRMWARE_INCLUDE_MT7615=y/' .config
+          sed -i 's/^CONFIG_WIFI_MT7615_NEW_DRV=n/CONFIG_WIFI_MT7615_NEW_DRV=y/' .config
+          # 基础网络
+          sed -i 's/^CONFIG_FIRMWARE_ENABLE_IPV6=n/CONFIG_FIRMWARE_ENABLE_IPV6=y/' .config
+          sed -i 's/^CONFIG_FIRMWARE_ENABLE_USB=n/CONFIG_FIRMWARE_ENABLE_USB=y/' .config
           sed -i 's/^CONFIG_WIFI_REGION=.*/CONFIG_WIFI_REGION="CN"/' .config
-          sed -i 's/^CONFIG_5G_CHANNEL_WIDTH=.*/CONFIG_5G_CHANNEL_WIDTH=80/' .config
           sed -i 's/^CONFIG_2G_CHANNEL_WIDTH=.*/CONFIG_2G_CHANNEL_WIDTH=40/' .config
           sed -i 's/^CONFIG_WIFI_TX_POWER=.*/CONFIG_WIFI_TX_POWER=20/' .config
           # 管理地址
           sed -i 's/^CONFIG_LAN_IP=.*/CONFIG_LAN_IP="192.168.123.1"/' .config
           sed -i 's/^CONFIG_LAN_NETMASK=.*/CONFIG_LAN_NETMASK="255.255.255.0"/' .config
-          # 关闭冗余插件
-          sed -i 's/^CONFIG_SERVER_FIREFLY=.*/CONFIG_SERVER_FIREFLY=n/' .config
-          sed -i 's/^CONFIG_SERVER_TRANSMISSION=.*/CONFIG_SERVER_TRANSMISSION=n/' .config
+          # 关闭冗余服务
+          sed -i 's/^CONFIG_SERVER_FIREFLY=y/CONFIG_SERVER_FIREFLY=n/' .config
+          sed -i 's/^CONFIG_SERVER_TRANSMISSION=y/CONFIG_SERVER_TRANSMISSION=n/' .config
           # 安全刷写
-          sed -i 's/^CONFIG_FIRMWARE_SKIP_BOOTLOADER=.*/CONFIG_FIRMWARE_SKIP_BOOTLOADER=y/' .config
-          sed -i 's/^CONFIG_MTD_PARTITION_PROTECT=.*/CONFIG_MTD_PARTITION_PROTECT=y/' .config
-          # 检查配置是否生效
-          grep -q "CONFIG_FIRMWARE_INCLUDE_MT7615=y" .config || exit 1
-          grep -q "CONFIG_TARGET_BOARD=\"NETGEAR-BZV\"" .config || exit 1
+          sed -i 's/^CONFIG_FIRMWARE_SKIP_BOOTLOADER=n/CONFIG_FIRMWARE_SKIP_BOOTLOADER=y/' .config
+          sed -i 's/^CONFIG_MTD_PARTITION_PROTECT=n/CONFIG_MTD_PARTITION_PROTECT=y/' .config
+          # 软件中心 + Entware 全套开启
+          sed -i 's/^CONFIG_FIRMWARE_INCLUDE_ENTWARE=n/CONFIG_FIRMWARE_INCLUDE_ENTWARE=y/' .config
+          sed -i 's/^CONFIG_FIRMWARE_INCLUDE_SOFTWARE_CENTER=n/CONFIG_FIRMWARE_INCLUDE_SOFTWARE_CENTER=y/' .config
+          sed -i 's/^CONFIG_ENTWARE_FULL=n/CONFIG_ENTWARE_FULL=y/' .config
+          sed -i 's/^CONFIG_ENTWARE_USB_AUTO_MOUNT=n/CONFIG_ENTWARE_USB_AUTO_MOUNT=y/' .config
+          # 系统基础环境
+          sed -i 's/^CONFIG_FIRMWARE_TIMEZONE=.*/CONFIG_FIRMWARE_TIMEZONE="Asia/Shanghai"/' .config
+          sed -i 's/^CONFIG_FIRMWARE_INCLUDE_CHARSET_UTF8=n/CONFIG_FIRMWARE_INCLUDE_CHARSET_UTF8=y/' .config
+          # ========== 新增：网口LED强制开启 ==========
+          sed -i 's/^CONFIG_ETH_LED_CONTROL=n/CONFIG_ETH_LED_CONTROL=y/' .config
+          sed -i 's/^CONFIG_ETH_SPEED_LED=y/CONFIG_ETH_SPEED_LED=y/' .config
 
-      # 7. 编译（修复环境变量 + 清理 + 安全编译）
-      - name: Build firmware
+          # 关键配置校验
+          grep -q 'CONFIG_LINUX_4_4=y' .config || exit 1
+          grep -q 'CONFIG_FIRMWARE_INCLUDE_LANG_CN=y' .config || exit 1
+          grep -q 'CONFIG_5G_CHANNEL_WIDTH=160' .config || exit 1
+          grep -q 'CONFIG_FIRMWARE_INCLUDE_SOFTWARE_CENTER=y' .config || exit 1
+          grep -q 'CONFIG_ETH_LED_CONTROL=y' .config || exit 1
+
+      - name: 编译固件
         run: |
-          cd ./rt-n56u/trunk
+          cd rt-n56u/trunk
           export FORCE_UNSAFE_CONFIGURE=1
           export TOOLCHAIN_DIR="../toolchain-mipsel"
           ./clear_tree
           fakeroot ./build_firmware_modify NETGEAR-BZV
-          # 验证固件生成
-          ls ./images/*.trx || exit 1
+          [ -n "$(ls images/*.trx 2>/dev/null)" ] || exit 1
 
-      # 8. 生成 MD5 校验
-      - name: Generate firmware MD5
+      - name: 生成 MD5 校验
         run: |
-          cd ./rt-n56u/trunk/images
+          cd rt-n56u/trunk/images
           md5sum *.trx > firmware.md5
 
-      # 9. 上传固件
-      - name: Upload firmware artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: R6800-firmware-minimal
-          path: |
-            ./rt-n56u/trunk/images/*.trx
-            ./rt-n56u/trunk/images/firmware.md5
+          name: R6800-K4.4-CN-160MHz-SoftCenter
+          path: rt-n56u/trunk/images/*
