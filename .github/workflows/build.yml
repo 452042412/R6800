@@ -31,14 +31,11 @@ jobs:
           echo "toolchain-mipsel/" >> .git/info/sparse-checkout
           git pull --depth=1 origin master
 
-      - name: 下载并部署预编译工具链
+      - name: 下载并部署预编译工具链（官方脚本）
         run: |
           cd rt-n56u
-          rm -rf toolchain-mipsel
-          wget -O toolchain-mipsel.tar.xz https://github.com/MeIsTooYoung/toolchain/releases/download/v1.0/toolchain-mipsel.tar.xz
-          tar -xJf toolchain-mipsel.tar.xz
-          rm -f toolchain-mipsel.tar.xz
-          [ -f toolchain-mipsel/bin/mipsel-linux-uclibc-gcc ] || exit 1
+          ./trunk/download_toolchain.sh mipsel
+          [ -d toolchain-mipsel ] || exit 1
 
       - name: 部署中文语言包 + 软件中心前端
         run: |
