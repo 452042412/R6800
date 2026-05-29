@@ -1,178 +1,106 @@
-name: R6800-K4.4-CN-160MHz-SoftCenter
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+#修改TNAME: K2P-5.0 中的K2P-5.0为你需要编译的型号，注意名称要与configs/templates/目录下的名字相同
+name: Build Padavan
 
-env:
-  TOOLCHAIN_CACHE_KEY: toolchain-mipsel-k4.4
-  DEPS_CACHE_KEY: ubuntu2204-build-deps
+on: 
+  release:
+    types: [published]
+  push:
+    tags:
+    - 'v*'
+  #  branches: 
+  #    - master
+#  schedule:
+#    - cron: 0 8 * * 5
+  watch:
+    types: [started]
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-    defaults:
-      run:
-        shell: bash
-        working-directory: .
+    runs-on: ubuntu-18.04
+    if: github.event.repository.owner.id == github.event.sender.id
+
     steps:
-      # ✅ 升级checkout到v4（兼容Node.js 24，解决弃用警告）
-      - uses: actions/checkout@v4
-
-      # ✅ 升级cache到v4（兼容Node.js 24，解决弃用警告）
-      - name: 缓存编译依赖
-        uses: actions/cache@v4
-        with:
-          path: /var/cache/apt/archives
-          key: ${{ env.DEPS_CACHE_KEY }}-${{ runner.os }}
-
-      - name: 系统初始化
-        run: |
-          set -e
-          sudo sed -i 's@http://.*.ubuntu.com@https://mirrors.aliyun.com@g' /etc/apt/sources.list
-          sudo apt-get update -y
-          sudo apt-get install -y --no-install-recommends \
-            build-essential libncurses5-dev git unzip wget curl fakeroot bc \
-            libssl-dev zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev flex bison
-          sudo chmod -R 755 .
-
-      - name: 拉取编译源码
-        run: |
-          set -e
-          mkdir -p rt-n56u && cd rt-n56u
-          git init
-          git remote add origin https://github.com/hanwckf/rt-n56u.git
-          git config core.sparseCheckout true
-          echo "trunk/" >> .git/info/sparse-checkout
-          git pull --depth=1 origin master
-          if [ ! -d "trunk" ]; then
-            echo "源码拉取失败：trunk目录不存在" && exit 1
-          fi
-          if [ ! -f "trunk/download_toolchain.sh" ]; then
-            echo "错误：download_toolchain.sh 未找到" && exit 1
-          fi
-          chmod +x trunk/download_toolchain.sh
-
-      - name: 缓存编译工具链
-        uses: actions/cache@v4
-        with:
-          path: rt-n56u/toolchain-mipsel
-          key: ${{ env.TOOLCHAIN_CACHE_KEY }}-${{ runner.os }}
-
-      - name: 部署编译工具链
-        run: |
-          set -e
-          cd rt-n56u
-          ./trunk/download_toolchain.sh mipsel
-          if [ ! -d "toolchain-mipsel" ]; then
-            echo "工具链部署失败：toolchain-mipsel目录不存在" && exit 1
-          fi
-
-      - name: 部署中文语言包&软件中心
-        run: |
-          set -e
-          cd rt-n56u/trunk
-          wget --tries=3 --timeout=60 -O lang_cn.tar.gz https://github.com/gorden5566/padavan/raw/master/lang_cn.tar.gz
-          if ! tar -tzf lang_cn.tar.gz >/dev/null 2>&1; then
-            echo "中文语言包压缩包损坏" && exit 1
-          fi
-          tar -zxf lang_cn.tar.gz -C user/www/ && rm -f lang_cn.tar.gz
-          
-          wget --tries=3 --timeout=60 -O softcenter.sh https://github.com/hanwckf/rt-n56u/raw/master/trunk/user/www/softcenter.sh
-          chmod +x softcenter.sh && ./softcenter.sh && rm -f softcenter.sh
-
-      - name: 写入R6800硬件配置
-        run: |
-          set -e
-          mkdir -p rt-n56u/trunk/configs/boards/NETGEAR-BZV
-          cat > rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.mk << EOF
-          BOARD_NAME := NETGEAR-BZV
-          KERNEL := 4.4
-          CONFIG_MT7615_5G_ANT_TX=4
-          CONFIG_MT7615_5G_ANT_RX=4
-          CONFIG_MT7615_4X4=y
-          CONFIG_MT7621_CPU_CLOCK=1000
-          CONFIG_MT7615_160MHZ_SUPPORT=y
-          EOF
-          cat > rt-n56u/trunk/configs/boards/NETGEAR-BZV/kernel-4.4.config << EOF
-          CONFIG_RAETH_ESW_PORT_WAN=4
-          CONFIG_RAETH_ESW_PORT_LAN1=3
-          CONFIG_RAETH_ESW_PORT_LAN2=2
-          CONFIG_RAETH_ESW_PORT_LAN3=1
-          CONFIG_RAETH_ESW_PORT_LAN4=0
-          CONFIG_MT7621_ESW_MDIO_FIX=y
-          CONFIG_MT7615_160MHZ=y
-          EOF
-          cat > rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h << EOF
-          #define BOARD_PID "NETGEAR-BZV"
-          #define BOARD_NAME "NETGEAR-BZV"
-          #define BOARD_DESC "NETGEAR R6800"
-          #define BOARD_VENDOR_NAME "NETGEAR"
-          #define BOARD_BOOT_TIME 20
-          #define BOARD_FLASH_TIME 120
-          #define BOARD_GPIO_BTN_RESET 12
-          #define BOARD_GPIO_BTN_WPS 18
-          #define BOARD_GPIO_BTN_FN1 14
-          #define BOARD_GPIO_LED_WIFI 5
-          #define BOARD_GPIO_USB_PWR 11
-          #define BOARD_GPIO_POWER_LED 7
-          #define BOARD_GPIO_WAN_LED 6
-          #define BOARD_GPIO_LAN_LED 8
-          #define BOARD_GPIO_RESET_ACTIVE_LOW 1
-          #define BOARD_HAS_5G_11AC 1
-          #define BOARD_HAS_2G_11N 1
-          #define BOARD_NUM_ANT_5G_TX 4
-          #define BOARD_NUM_ANT_5G_RX 4
-          #define BOARD_NUM_ANT_2G_TX 4
-          #define BOARD_NUM_ANT_2G_RX 4
-          #define BOARD_NUM_ETH_LEDS 1
-          #define BOARD_NUM_ETH_EPHY 5
-          #define BOARD_HAS_EPHY_L1000 1
-          #define BOARD_HAS_EPHY_W1000 1
-          #define BOARD_NUM_UPHY_USB3 1
-          #define BOARD_WIFI_5G_160MHZ 1
-          EOF
-          if [ ! -f "rt-n56u/trunk/configs/boards/NETGEAR-BZV/board.h" ]; then
-            echo "硬件配置文件生成失败" && exit 1
-          fi
-
-      - name: 生成编译配置
-        run: |
-          set -e
-          cd rt-n56u/trunk
-          cp configs/templates/PSG1208.config .config
-          sed -i \
-            -e 's/^CONFIG_KERNEL_VERSION=.*/CONFIG_KERNEL_VERSION="4.4"/' \
-            -e 's/^CONFIG_LINUX_3_4=y/CONFIG_LINUX_3_4=n/' \
-            -e 's/^CONFIG_LINUX_4_4=n/CONFIG_LINUX_4_4=y/' \
-            -e 's/^CONFIG_TARGET_BOARD=.*/CONFIG_TARGET_BOARD="NETGEAR-BZV"/' \
-            -e 's/^CONFIG_FIRMWARE_FLASH_SIZE=.*/CONFIG_FIRMWARE_FLASH_SIZE=134217728/' \
-            -e 's/^CONFIG_FIRMWARE_INCLUDE_LANG_CN=n/CONFIG_FIRMWARE_INCLUDE_LANG_CN=y/' \
-            -e 's/^CONFIG_5G_CHANNEL_WIDTH=.*/CONFIG_5G_CHANNEL_WIDTH=160/' \
-            -e 's/^CONFIG_ETH_LED_CONTROL=n/CONFIG_ETH_LED_CONTROL=y/' \
-            -e 's/^CONFIG_FIRMWARE_INCLUDE_SOFTWARE_CENTER=n/CONFIG_FIRMWARE_INCLUDE_SOFTWARE_CENTER=y/' \
-            .config
-          if ! grep -q "CONFIG_LINUX_4_4=y" .config; then
-            echo "核心配置修改失败：Linux 4.4未启用" && exit 1
-          fi
-
-      - name: 开始编译固件
-        run: |
-          set -e
-          cd rt-n56u/trunk
-          export TOOLCHAIN_DIR="../toolchain-mipsel"
-          ./clear_tree
-          fakeroot ./build_firmware_modify NETGEAR-BZV 2>&1 | tee build.log
-          if [ ! -f "images/*.trx" ]; then
-            echo "固件编译失败：未生成trx文件" && exit 1
-          fi
-
-      - name: 上传编译产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: R6800-K4.4-160MHz-中文-软件中心-固件
-          path: |
-            rt-n56u/trunk/images/*.trx
-            rt-n56u/trunk/images/*.bin
-            rt-n56u/trunk/build.log
-          retention-days: 7
+    - name: Checkout
+      uses: actions/checkout@master
+    - name: Initialization environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install unzip libtool-bin curl cmake gperf gawk flex bison nano xxd fakeroot \
+        cpio git python-docutils gettext automake autopoint texinfo build-essential help2man \
+        pkg-config zlib1g-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses5-dev libltdl-dev wget
+    - name: Clone source code
+      run: |
+        git clone --depth=1 https://github.com/MeIsReallyBa/padavan-4.4.git /opt/rt-n56u
+        cd /opt/rt-n56u/toolchain-mipsel
+        sh dl_toolchain.sh
+        mkdir -p /opt/images/
+    - name: Build Firmware
+      env:
+        TNAME: NETGEAR-BZV
+      run: |
+        cd /opt/rt-n56u/trunk
+        if [ ! -f configs/templates/$TNAME.config ] ; then
+        echo "configs/templates/$TNAME.config not found "
+        exit 1
+        fi
+        cp -f configs/templates/$TNAME.config .config
+        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
+        ################################################################################################
+        #因不同型号配置功能不一样，所以先把配置项删除，如果你自己要添加其他的，也要写上删除这一条，切记！！！
+        ################################################################################################
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_MENTOHUST/d' .config #删除配置项MENTOHUST
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT/d' .config #删除配置项SCUTCLIENT
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS/d' .config #删除配置项SS plus+
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SSSERVER/d' .config #删除配置项SS server
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER/d' .config #删除配置项DNSFORWARDER
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_ADBYBY/d' .config #删除配置项adbyby plus+
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_FRPC/d' .config #删除配置项adbyby plus+
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_FRPS/d' .config #删除配置项adbyby plus+
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_TUNSAFE/d' .config #删除配置项adbyby plus+
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_ALIDDNS/d' .config #删除配置项阿里DDNS
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SMARTDNS/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SRELAY/d' .config
+        sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
+        ######################################################################
+        #以下选项是定义你需要的功能（y=集成,n=忽略），重新写入到.config文件
+        ######################################################################
+        echo "CONFIG_FIRMWARE_INCLUDE_MENTOHUST=n" >> .config #MENTOHUST
+        echo "CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT=n" >> .config #SCUTCLIENT
+        echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=n" >> .config #SS plus+
+        echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=n" >> .config # simple-obfs混淆插件
+        echo "CONFIG_FIRMWARE_INCLUDE_SSSERVER=n" >> .config #SS server
+        echo "CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER=n" >> .config #DNSFORWARDER
+        echo "CONFIG_FIRMWARE_INCLUDE_ADBYBY=n" >> .config #adbyby plus+
+        echo "CONFIG_FIRMWARE_INCLUDE_FRPC=n" >> .config #内网穿透FRPC
+        echo "CONFIG_FIRMWARE_INCLUDE_FRPS=n" >> .config #内网穿透FRPS
+        echo "CONFIG_FIRMWARE_INCLUDE_TUNSAFE=n" >> .config #TUNSAFE
+        echo "CONFIG_FIRMWARE_INCLUDE_ALIDDNS=n" >> .config #阿里DDNS
+        echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNS=n" >> .config #smartdns
+        echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNSBIN=n" >> .config #smartdns二进制文件
+        echo "CONFIG_FIRMWARE_INCLUDE_V2RAY=n" >> .config #集成v2ray执行文件（3.8M左右)，如果不集成，会从网上下载下来执行，不影响正常使用
+        echo "CONFIG_FIRMWARE_INCLUDE_TROJAN=n" >> .config #集成trojan执行文件(1.1M左右)，如果不集成，会从网上下载下来执行，不影响正常使用
+        echo "CONFIG_FIRMWARE_INCLUDE_KOOLPROXY=n" >> .config #KP广告过滤
+        echo "CONFIG_FIRMWARE_INCLUDE_CADDY=n" >> .config #在线文件管理服务
+        echo "CONFIG_FIRMWARE_INCLUDE_CADDYBIN=n" >> .config #集成caddu执行文件，此文件有13M,请注意固件大小。如果不集成，会从网上下载下来执行，不影响正常使用
+        echo "CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME=n" >> .config
+        echo "CONFIG_FIRMWARE_INCLUDE_SRELAY=n" >> .config #可以不集成
+        echo "CONFIG_FIRMWARE_INCLUDE_WYY=n" >> .config #网易云解锁
+        echo "CONFIG_FIRMWARE_INCLUDE_WYYBIN=n" >> .config #网易云解锁GO版本执行文件（4M多）注意固件超大小,不集成会自动下载
+        echo "CONFIG_FIRMWARE_INCLUDE_ZEROTIER=n" >> .config #zerotier ~1.3M
+        #########################################################################################
+        #自定义添加其它功能请参考源码configs/templates/目录下的config文件。按照上面的格式添加即可
+        #格式如下：
+        #sed -i '/自定义项/d' .config
+        #echo "自定义项=y" >> .config
+        #########################################################################################
+        sudo ./clear_tree
+        sudo ./build_firmware_modify $TNAME 0
+        sudo mv -f images/*.trx /opt/images/
+    - name : Upload packages
+      uses: actions/upload-artifact@master
+      if: always()
+      with:
+        name: NETGEAR-BZV-4.4
+        path: /opt/images
